@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+
+# Test and tool caches
+.coverage
+htmlcov/

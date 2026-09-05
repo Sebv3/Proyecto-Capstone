@@ -59,6 +59,7 @@
 | **Pasarela de Pago** | Mercado Pago | Modo Sandbox/Pruebas (proyecto de título) |
 | **Mapas** | react-native-maps + Google Maps | Mapa estático con pines, sin GPS en vivo |
 | **Notificaciones** | Expo Notifications | Alertas push automáticas |
+| **Entorno Backend** | Docker Compose | Desarrollo reproducible para todo el equipo |
 | **Idioma** | Español | Solo español inicialmente |
 
 ---
@@ -373,6 +374,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | Diseño de Base de Datos | ✅ Completo |
 | Diagramas | ✅ Completo (Casos de uso, Secuencias, Clases) |
 | Contexto del Proyecto | ✅ Completo |
+| Definición del MVP | ✅ Completo (`MVP.md`) |
 | Diseño UI/UX | ⏳ Pendiente |
 | Desarrollo Frontend | ⏳ Pendiente |
 | Desarrollo Backend | ⏳ Pendiente |
@@ -393,6 +395,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | `CasosUso.md` | 20 casos de uso con flujos detallados | 400+ |
 | `ModeloDatos.md` | 14 entidades con atributos y relaciones | 332 |
 | `Pendientes.md` | 18 decisiones resueltas | 168 |
+| `MVP.md` | Alcance, stack, criterios de aceptación y etapas del MVP | - |
 | `Diagramas/CasosUso.md` | Diagramas Mermaid de actores y flujos | 155 |
 | `Diagramas/Secuencias.md` | 12 diagramas de secuencia | 350+ |
 | `Diagramas/Clases.md` | Diagrama de clases y paquetes | 342 |
@@ -411,3 +414,5 @@ Al trabajar en este proyecto, ten en cuenta:
 6. **Sin GPS en tiempo real:** La ubicación es estática, registrada por el usuario.
 7. **Moderación:** Reseñas tienen filtro automático + sistema de reporte.
 8. **Admin manual:** Verificaciones, certificaciones, disputas y soporte son gestionados manualmente por el administrador.
+9. **Alcance del MVP:** Consultar `MVP.md` antes de implementar una funcionalidad. Lo que figure fuera de alcance se posterga salvo decisión explícita del equipo.
+10. **Base móvil:** El MVP utilizará Expo con React Native y TypeScript, manteniendo React Navigation.

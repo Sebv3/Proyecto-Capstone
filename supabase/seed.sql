@@ -1,0 +1,1 @@
+-- Los datos iniciales de categorías se agregarán junto con la migración de servicios.
