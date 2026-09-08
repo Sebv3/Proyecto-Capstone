@@ -16,4 +16,5 @@ directorio.
 - Los datos iniciales repetibles se guardan en `seed.sql`.
 - Nunca se guardan claves o credenciales en esta carpeta.
 
-La primera migración se creará al diseñar el esquema de autenticación y perfiles.
+Las migraciones existentes reconstruyen el esquema inicial de usuarios,
+trabajadores y verificación documental.
