@@ -1,0 +1,50 @@
+from typing import Annotated, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field, StringConstraints
+
+from app.schemas.user import ChileanRut, User, UserName
+
+Email = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=3,
+        max_length=320,
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+    ),
+]
+
+
+class RegisterRequest(BaseModel):
+    email: Email
+    password: str = Field(min_length=8)
+    nombre: UserName
+    rut: ChileanRut
+    rol: Literal["CLIENTE", "TRABAJADOR"]
+
+
+class LoginRequest(BaseModel):
+    email: Email
+    password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(min_length=1)
+
+
+class SessionResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+    expires_in: int
+
+
+class RegisterResponse(BaseModel):
+    user_id: UUID
+    session: SessionResponse | None
+    email_confirmation_required: bool
+
+
+class MeResponse(BaseModel):
+    user: User

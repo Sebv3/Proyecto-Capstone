@@ -192,10 +192,12 @@ Estas funciones podrán agregarse después de validar el flujo principal.
 | Archivos | Supabase Storage |
 | Pagos | Mercado Pago Sandbox |
 
-El móvil se autenticará directamente con Supabase Auth. Para las operaciones del
-negocio enviará el access token a FastAPI mediante `Authorization: Bearer <token>`.
-FastAPI validará el token y será la única vía normal para modificar datos del
-dominio. No se expondrá la clave secreta de Supabase en la aplicación móvil.
+El móvil utilizará los endpoints `register`, `login` y `refresh` de FastAPI. La API
+delegará la autenticación y emisión de tokens en Supabase Auth. Para las operaciones
+del negocio, el móvil enviará el access token a FastAPI mediante
+`Authorization: Bearer <token>`. FastAPI validará el token y será la única vía
+normal para modificar datos del dominio. No se expondrá la clave secreta de
+Supabase en la aplicación móvil.
 
 ---
 
@@ -232,7 +234,7 @@ El MVP se considerará terminado cuando:
 ### Etapa 1: autenticación y perfiles
 
 - Crear esquema inicial de usuarios y perfiles.
-- Implementar Supabase Auth en Expo.
+- Conectar Expo con los endpoints de autenticación de FastAPI.
 - Validar JWT en FastAPI.
 - Completar y consultar perfiles.
 
@@ -268,7 +270,7 @@ El MVP se considerará terminado cuando:
 El primer incremento programable será:
 
 ```text
-Aplicación Expo -> Supabase Auth -> JWT -> FastAPI -> perfil en PostgreSQL
+Aplicación Expo -> FastAPI auth -> Supabase Auth -> JWT -> FastAPI -> perfil en PostgreSQL
 ```
 
 Antes de este incremento se debe crear el esquema SQL inicial y configurar un
