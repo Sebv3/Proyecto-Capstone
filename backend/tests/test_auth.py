@@ -93,6 +93,42 @@ def test_register_rejects_admin_without_contacting_supabase(make_client) -> None
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("rut", ["12345678-0", "12x345678-5", "123-6"])
+def test_register_rejects_invalid_rut_before_supabase(make_client, rut) -> None:
+    def unexpected(_: httpx.Request) -> httpx.Response:
+        pytest.fail("An invalid RUT must not reach Supabase")
+
+    body = {**_register_body(), "rut": rut}
+    response = make_client(unexpected).post("/api/v1/auth/register", json=body)
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "rut"]
+
+
+@pytest.mark.parametrize(
+    ("rut", "normalized"),
+    [(" 12.345.678-5 ", "12345678-5"), ("6.000.000-k", "6000000-K"),
+     ("10.000.004-0", "10000004-0")],
+)
+def test_register_normalizes_valid_rut(make_client, rut, normalized) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["data"]["rut"] == normalized
+        return httpx.Response(200, json={"id": USER_ID})
+
+    body = {**_register_body(), "rut": rut}
+    assert make_client(handler).post("/api/v1/auth/register", json=body).status_code == 201
+
+
+def test_login_explains_email_confirmation(make_client) -> None:
+    client = make_client(
+        lambda _: httpx.Response(400, json={"error_code": "email_not_confirmed"})
+    )
+    response = client.post(
+        "/api/v1/auth/login", json={"email": "persona@example.com", "password": "secret123"}
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Confirma tu correo antes de iniciar sesión"
+
+
 def test_login_and_refresh_use_the_right_supabase_grants(make_client) -> None:
     requests: list[httpx.Request] = []
 

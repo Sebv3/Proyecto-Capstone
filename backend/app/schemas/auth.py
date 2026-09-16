@@ -1,7 +1,8 @@
+import re
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.schemas.user import ChileanRut, User, UserName
 
@@ -22,6 +23,25 @@ class RegisterRequest(BaseModel):
     nombre: UserName
     rut: ChileanRut
     rol: Literal["CLIENTE", "TRABAJADOR"]
+
+    @field_validator("rut", mode="before")
+    @classmethod
+    def normalize_rut(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        clean = re.sub(r"[.\s-]", "", value.upper())
+        return f"{clean[:-1]}-{clean[-1:]}"
+
+    @field_validator("rut")
+    @classmethod
+    def validate_rut(cls, value: str) -> str:
+        body, check_digit = value.split("-")
+        total = sum(int(digit) * (2 + index % 6) for index, digit in enumerate(reversed(body)))
+        remainder = 11 - total % 11
+        expected = {11: "0", 10: "K"}.get(remainder, str(remainder))
+        if check_digit != expected:
+            raise ValueError("El dígito verificador del RUT no es válido")
+        return value
 
 
 class LoginRequest(BaseModel):

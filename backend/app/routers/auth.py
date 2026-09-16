@@ -68,6 +68,15 @@ async def login(body: LoginRequest, gateway: AuthGateway) -> SessionResponse:
         params={"grant_type": "password"},
         json={"email": body.email, "password": body.password},
     )
+    if response.status_code in (400, 403):
+        try:
+            error = response.json()
+        except ValueError:
+            error = None
+        if isinstance(error, dict) and error.get("error_code") == "email_not_confirmed":
+            raise HTTPException(
+                status_code=403, detail="Confirma tu correo antes de iniciar sesión"
+            )
     _auth_error(response.status_code, "Credenciales inválidas", invalid_status=401)
     try:
         return _session(response.json())
