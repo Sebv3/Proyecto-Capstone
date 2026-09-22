@@ -8,6 +8,19 @@ export type User = {
   activo: boolean;
 };
 
+export type AuthSession = {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  expires_at: number;
+};
+
+export type AuthenticatedUser = {
+  session: AuthSession;
+  user: User;
+};
+
 const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, ''),
   timeout: 15000,
@@ -42,15 +55,34 @@ export function registerErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'No se pudo registrar la cuenta.';
 }
 
-export async function login(email: string, password: string): Promise<User> {
-  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
-  const { data: session } = await api.post<{ access_token: string }>('/auth/login', { email, password });
-  if (!session.access_token) throw new Error('No se pudo iniciar la sesión. Inténtalo nuevamente.');
+function parseSession(data: Omit<AuthSession, 'expires_at'>): AuthSession {
+  if (!data.access_token || !data.refresh_token || !data.token_type || data.expires_in <= 0) {
+    throw new Error('Supabase devolvió una sesión incompleta.');
+  }
+  return { ...data, expires_at: Date.now() + data.expires_in * 1000 };
+}
+
+export async function getCurrentUser(accessToken: string): Promise<User> {
   const { data } = await api.get<{ user: User }>('/auth/me', {
-    headers: { Authorization: `Bearer ${session.access_token}` },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!data.user?.id || !data.user.activo) throw new Error('No se pudo acceder a tu perfil.');
   return data.user;
+}
+
+export async function login(email: string, password: string): Promise<AuthenticatedUser> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  const { data } = await api.post<Omit<AuthSession, 'expires_at'>>('/auth/login', { email, password });
+  const session = parseSession(data);
+  return { session, user: await getCurrentUser(session.access_token) };
+}
+
+export async function refreshSession(refreshToken: string): Promise<AuthSession> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  const { data } = await api.post<Omit<AuthSession, 'expires_at'>>('/auth/refresh', {
+    refresh_token: refreshToken,
+  });
+  return parseSession(data);
 }
 
 export function loginErrorMessage(error: unknown): string {
@@ -68,4 +100,8 @@ export function loginErrorMessage(error: unknown): string {
     }
   }
   return error instanceof Error ? error.message : 'No se pudo iniciar sesión.';
+}
+
+export function isUnauthorized(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 401;
 }

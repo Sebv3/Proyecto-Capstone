@@ -1,10 +1,17 @@
-# ServiMatch móvil — SCRUM-10
+# ServiMatch móvil — SCRUM-10 a SCRUM-12
 
 Login conectado a `POST /api/v1/auth/login` y `GET /api/v1/auth/me`.
 Después de ingresar se muestra el nombre, correo y rol del perfil real.
-El acceso se mantiene en memoria: reiniciar la app requiere volver a ingresar.
-No se almacenan contraseñas ni tokens en disco. Cerrar sesión elimina el perfil
-local; todavía no existe revocación remota de sesiones en el backend.
+En Android e iOS, la sesión se almacena cifrada con Expo SecureStore y se restaura
+al reiniciar la app. Si el access token venció, el móvil utiliza `/auth/refresh`,
+guarda los tokens rotados y vuelve a consultar `/auth/me`. Nunca se guarda la
+contraseña. En web, la sesión se conserva solo durante la pestaña actual mediante
+`sessionStorage`, porque el navegador no ofrece un equivalente de SecureStore.
+Cerrar sesión elimina los tokens y el perfil local; todavía no existe revocación
+remota de sesiones en el backend.
+Mientras se comprueba la sesión guardada, la navegación muestra una pantalla de
+carga. Login y Perfil se montan únicamente después de conocer el estado real, por
+lo que recargar la app no debe mostrar brevemente el formulario de ingreso.
 Desde Login, **Crear cuenta** abre Registro con selección obligatoria de Cliente
 o Trabajador, nombre, correo, RUT, contraseña y confirmación. Se valida el dígito
 verificador del RUT antes de enviar `POST /api/v1/auth/register`. Al aceptar el
@@ -46,6 +53,13 @@ En el dispositivo, comprobar:
 9. Registrar una cuenta propia nueva, confirmar el correo e ingresar; verificar
    que el perfil muestra el rol seleccionado. Repetir para el otro rol con datos
    de prueba distintos (el RUT y correo son únicos).
+10. En Android o iOS, cerrar y abrir nuevamente la app: debe recuperar el perfil
+    sin solicitar otra vez la contraseña.
+11. Cerrar sesión y reiniciar la app: debe permanecer en Login.
+12. En web, recargar la pestaña mantiene la sesión; cerrar la pestaña elimina la
+    sesión temporal.
+13. Al recargar con una sesión guardada, debe aparecer brevemente “Preparando tu
+    sesión…” y luego Perfil, sin mostrar Login entre ambas pantallas.
 
 Las pruebas HTTP usan respuestas simuladas; el recorrido real debe comprobarse
 con una cuenta propia sin compartir contraseñas ni tokens.

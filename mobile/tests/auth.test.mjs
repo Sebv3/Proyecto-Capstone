@@ -5,14 +5,28 @@ import axios from 'axios';
 process.env.EXPO_PUBLIC_API_URL = 'http://localhost:8000/api/v1';
 let handler;
 axios.defaults.adapter = (config) => handler(config);
-const { login, loginErrorMessage, register, registerErrorMessage } = await import('../src/api/auth.ts');
+const { login, loginErrorMessage, refreshSession, register, registerErrorMessage } = await import('../src/api/auth.ts');
 const { registerSchema } = await import('../src/auth/registerSchema.ts');
+const { clearStoredSession, readStoredSession, saveSession } = await import('../src/auth/sessionStorage.web.ts');
 const user = { id: 'user-1', nombre: 'Ana', email: 'ana@example.com', rol: 'CLIENTE', activo: true };
+const sessionResponse = {
+  access_token: 'test-token', refresh_token: 'refresh-token', token_type: 'bearer', expires_in: 3600,
+};
 const response = (config, data) => ({ config, data, status: 200, statusText: 'OK', headers: {} });
 
 const registration = {
   nombre: ' Ana ', email: 'ana@example.com', rut: '12.345.678-5',
   password: 'test-only', confirmPassword: 'test-only', rol: 'CLIENTE',
+};
+
+const browserStorage = new Map();
+globalThis.sessionStorage = {
+  getItem: (key) => browserStorage.get(key) ?? null,
+  setItem: (key, value) => browserStorage.set(key, value),
+  removeItem: (key) => browserStorage.delete(key),
+  clear: () => browserStorage.clear(),
+  key: (index) => [...browserStorage.keys()][index] ?? null,
+  get length() { return browserStorage.size; },
 };
 
 test('registration validates both roles and normalizes the RUT', () => {
@@ -64,13 +78,41 @@ test('login retrieves the profile with the issued token before granting access',
     calls.push(config.url);
     if (config.url === '/auth/login') {
       assert.deepEqual(JSON.parse(config.data), { email: 'ana@example.com', password: 'test-only' });
-      return response(config, { access_token: 'test-token' });
+      return response(config, sessionResponse);
     }
     assert.equal(config.headers.Authorization, 'Bearer test-token');
     return response(config, { user });
   };
-  assert.deepEqual(await login('ana@example.com', 'test-only'), user);
+  const authenticated = await login('ana@example.com', 'test-only');
+  assert.deepEqual(authenticated.user, user);
+  assert.deepEqual(
+    { ...authenticated.session, expires_at: undefined },
+    { ...sessionResponse, expires_at: undefined },
+  );
+  assert.ok(authenticated.session.expires_at > Date.now());
   assert.deepEqual(calls, ['/auth/login', '/auth/me']);
+});
+
+test('refresh rotates the session tokens and calculates their expiration', async () => {
+  handler = async (config) => {
+    assert.equal(config.url, '/auth/refresh');
+    assert.deepEqual(JSON.parse(config.data), { refresh_token: 'old-refresh-token' });
+    return response(config, {
+      ...sessionResponse, access_token: 'new-access-token', refresh_token: 'new-refresh-token',
+    });
+  };
+  const refreshed = await refreshSession('old-refresh-token');
+  assert.equal(refreshed.access_token, 'new-access-token');
+  assert.equal(refreshed.refresh_token, 'new-refresh-token');
+  assert.ok(refreshed.expires_at > Date.now());
+});
+
+test('web session storage saves, reads, and clears the session for the current tab', async () => {
+  const session = { ...sessionResponse, expires_at: Date.now() + 3_600_000 };
+  await saveSession(session);
+  assert.deepEqual(await readStoredSession(), session);
+  await clearStoredSession();
+  assert.equal(await readStoredSession(), null);
 });
 
 test('failed login never queries the profile', async () => {
@@ -87,7 +129,7 @@ test('failed login never queries the profile', async () => {
 
 test('an inactive profile does not grant access', async () => {
   handler = async (config) => response(config, config.url === '/auth/login'
-    ? { access_token: 'test-token' } : { user: { ...user, activo: false } });
+    ? sessionResponse : { user: { ...user, activo: false } });
   await assert.rejects(login('ana@example.com', 'test-only'), /perfil/);
 });
 

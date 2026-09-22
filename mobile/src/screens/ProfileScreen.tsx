@@ -16,7 +16,7 @@ export function ProfileScreen() {
         <Text style={styles.value}>{user.email}</Text>
         <Text style={styles.label}>Perfil</Text>
         <Text style={styles.value}>{roles[user.rol]}</Text>
-        <Pressable accessibilityRole="button" onPress={signOut} style={styles.button}>
+        <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.button}>
           <Text style={styles.buttonText}>Cerrar sesión</Text>
         </Pressable>
       </ScrollView>
