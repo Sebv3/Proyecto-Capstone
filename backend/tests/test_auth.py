@@ -48,23 +48,40 @@ def make_client():
 
 
 def _register_body(role: str = "CLIENTE") -> dict[str, str]:
-    return {
+    body = {
         "email": "persona@example.com",
         "password": "secret123",
         "nombre": "Persona Prueba",
         "rut": "12345678-5",
         "rol": role,
     }
+    if role == "CLIENTE":
+        body.update(
+            {
+                "direccion": "Avenida Siempre Viva 123",
+                "comuna_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            }
+        )
+    return body
 
 
 def test_register_sends_profile_metadata_and_handles_email_confirmation(make_client) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/comunas":
+            assert "Authorization" not in request.headers
+            return httpx.Response(200, json=[{"id": _register_body()["comuna_id"]}])
         assert request.url.path == "/auth/v1/signup"
         assert request.headers["apikey"] == "sb_publishable_test"
         assert json.loads(request.content) == {
             "email": "persona@example.com",
             "password": "secret123",
-            "data": {"nombre": "Persona Prueba", "rut": "12345678-5", "rol": "CLIENTE"},
+            "data": {
+                "nombre": "Persona Prueba",
+                "rut": "12345678-5",
+                "rol": "CLIENTE",
+                "direccion": "Avenida Siempre Viva 123",
+                "comuna_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            },
         }
         return httpx.Response(200, json={"id": USER_ID})
 
@@ -93,6 +110,27 @@ def test_register_rejects_admin_without_contacting_supabase(make_client) -> None
     assert response.status_code == 422
 
 
+def test_client_registration_requires_address_and_commune(make_client) -> None:
+    def unexpected(_: httpx.Request) -> httpx.Response:
+        pytest.fail("An incomplete client registration must not reach Supabase")
+
+    body = _register_body()
+    for missing in ("direccion", "comuna_id"):
+        incomplete = {key: value for key, value in body.items() if key != missing}
+        response = make_client(unexpected).post("/api/v1/auth/register", json=incomplete)
+        assert response.status_code == 422
+
+
+def test_client_registration_rejects_unavailable_commune(make_client) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/rest/v1/comunas"
+        return httpx.Response(200, json=[])
+
+    response = make_client(handler).post("/api/v1/auth/register", json=_register_body())
+    assert response.status_code == 422
+    assert response.json()["detail"] == "La comuna seleccionada no está disponible"
+
+
 @pytest.mark.parametrize("rut", ["12345678-0", "12x345678-5", "123-6"])
 def test_register_rejects_invalid_rut_before_supabase(make_client, rut) -> None:
     def unexpected(_: httpx.Request) -> httpx.Response:
@@ -111,6 +149,8 @@ def test_register_rejects_invalid_rut_before_supabase(make_client, rut) -> None:
 )
 def test_register_normalizes_valid_rut(make_client, rut, normalized) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/comunas":
+            return httpx.Response(200, json=[{"id": _register_body()["comuna_id"]}])
         assert json.loads(request.content)["data"]["rut"] == normalized
         return httpx.Response(200, json={"id": USER_ID})
 

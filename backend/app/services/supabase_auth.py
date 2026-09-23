@@ -22,10 +22,13 @@ class SupabaseAuthGateway:
         json: dict[str, Any] | None = None,
         params: dict[str, str] | None = None,
         access_token: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> httpx.Response:
         headers = {"apikey": self.publishable_key}
         if access_token is not None:
             headers["Authorization"] = f"Bearer {access_token}"
+        if extra_headers is not None:
+            headers.update(extra_headers)
 
         try:
             return await self.client.request(

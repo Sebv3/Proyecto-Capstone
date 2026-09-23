@@ -11,6 +11,7 @@ import { clearStoredSession, readStoredSession, saveSession } from './sessionSto
 
 type AuthState = {
   user: User | null;
+  accessToken: string | null;
   isRestoringSession: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -43,6 +44,7 @@ async function restoreSession(stored: AuthSession): Promise<{ session: AuthSessi
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
 
   useEffect(() => {
@@ -52,7 +54,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const stored = await readStoredSession();
         if (!stored) return;
         const restored = await restoreSession(stored);
-        if (active) setUser(restored.user);
+        if (active) {
+          setUser(restored.user);
+          setAccessToken(restored.session.access_token);
+        }
       } catch {
         await clearStoredSession();
       } finally {
@@ -67,15 +72,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const authenticated = await login(email, password);
     await saveSession(authenticated.session);
     setUser(authenticated.user);
+    setAccessToken(authenticated.session.access_token);
   }
 
   async function signOut() {
     await clearStoredSession();
     setUser(null);
+    setAccessToken(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, isRestoringSession, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, accessToken, isRestoringSession, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

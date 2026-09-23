@@ -1,9 +1,10 @@
 import re
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
+from app.schemas.client_profile import Address
 from app.schemas.user import ChileanRut, User, UserName
 
 Email = Annotated[
@@ -23,6 +24,8 @@ class RegisterRequest(BaseModel):
     nombre: UserName
     rut: ChileanRut
     rol: Literal["CLIENTE", "TRABAJADOR"]
+    direccion: Address | None = None
+    comuna_id: UUID | None = None
 
     @field_validator("rut", mode="before")
     @classmethod
@@ -42,6 +45,16 @@ class RegisterRequest(BaseModel):
         if check_digit != expected:
             raise ValueError("El dígito verificador del RUT no es válido")
         return value
+
+    @model_validator(mode="after")
+    def require_client_profile(self) -> Self:
+        if self.rol == "CLIENTE" and (self.direccion is None or self.comuna_id is None):
+            raise ValueError("Los clientes deben indicar dirección y comuna")
+        if self.rol == "TRABAJADOR" and (
+            self.direccion is not None or self.comuna_id is not None
+        ):
+            raise ValueError("El perfil de trabajador se completa después del registro")
+        return self
 
 
 class LoginRequest(BaseModel):

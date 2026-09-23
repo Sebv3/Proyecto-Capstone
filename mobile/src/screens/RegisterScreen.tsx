@@ -1,10 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable,
+  ScrollView, StyleSheet, Text, TextInput, View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { register, registerErrorMessage } from '../api/auth';
+import { type Commune, getCommunes, register, registerErrorMessage } from '../api/auth';
 import { registerSchema, type RegisterValues } from '../auth/registerSchema';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
@@ -16,15 +19,83 @@ const fields = [
   { name: 'confirmPassword', label: 'Confirmar contraseña', placeholder: 'Repite tu contraseña' },
 ] as const;
 
+type CommunePickerProps = {
+  communes: Commune[];
+  selectedId: string;
+  disabled: boolean;
+  onChange: (id: string) => void;
+};
+
+function CommunePicker({ communes, selectedId, disabled, onChange }: CommunePickerProps) {
+  const [open, setOpen] = useState(false);
+  const selected = communes.find((commune) => commune.id === selectedId);
+  return <>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Seleccionar comuna"
+      disabled={disabled}
+      onPress={() => setOpen(true)}
+      style={[styles.input, styles.select, disabled && styles.disabled]}
+    >
+      <Text style={selected ? styles.selectText : styles.placeholder}>
+        {selected?.nombre ?? (disabled ? 'Cargando comunas…' : 'Selecciona una comuna')}
+      </Text>
+    </Pressable>
+    <Modal animationType="slide" visible={open} onRequestClose={() => setOpen(false)}>
+      <SafeAreaView style={styles.modalPage}>
+        <View style={styles.modalHeader}>
+          <Text accessibilityRole="header" style={styles.modalTitle}>Selecciona tu comuna</Text>
+          <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={styles.closeButton}>
+            <Text style={styles.linkText}>Cerrar</Text>
+          </Pressable>
+        </View>
+        <FlatList
+          data={communes}
+          keyExtractor={(commune) => commune.id}
+          contentContainerStyle={styles.communeList}
+          renderItem={({ item }) => <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ checked: item.id === selectedId }}
+            onPress={() => { onChange(item.id); setOpen(false); }}
+            style={[styles.communeOption, item.id === selectedId && styles.selectedCommune]}
+          >
+            <Text style={styles.selectText}>{item.nombre}</Text>
+          </Pressable>}
+        />
+      </SafeAreaView>
+    </Modal>
+  </>;
+}
+
 export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Register'>) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ email: string; confirmation: boolean } | null>(null);
+  const [communes, setCommunes] = useState<Commune[]>([]);
+  const [loadingCommunes, setLoadingCommunes] = useState(true);
+  const [communesError, setCommunesError] = useState<string | null>(null);
   const submitting = useRef(false);
-  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<RegisterValues>({
+  const {
+    control, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting },
+  } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { nombre: '', email: '', rut: '', password: '', confirmPassword: '' },
+    defaultValues: {
+      nombre: '', email: '', rut: '', password: '', confirmPassword: '',
+      direccion: '', comuna_id: '',
+    },
   });
+  const role = watch('rol');
+
+  useEffect(() => {
+    let active = true;
+    getCommunes()
+      .then((items) => { if (active) setCommunes(items); })
+      .catch(() => {
+        if (active) setCommunesError('No pudimos cargar las comunas. Inténtalo nuevamente.');
+      })
+      .finally(() => { if (active) setLoadingCommunes(false); });
+    return () => { active = false; };
+  }, []);
   const submit = handleSubmit(async (values) => {
     if (submitting.current) return;
     submitting.current = true;
@@ -61,7 +132,14 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
               <View accessibilityRole="radiogroup" style={styles.roles}>
                 {(['CLIENTE', 'TRABAJADOR'] as const).map((role) => (
                   <Pressable key={role} accessibilityRole="radio" accessibilityState={{ checked: value === role, disabled: isSubmitting }}
-                    disabled={isSubmitting} onPress={() => { setError(null); onChange(role); }}
+                    disabled={isSubmitting} onPress={() => {
+                      setError(null);
+                      onChange(role);
+                      if (role === 'TRABAJADOR') {
+                        setValue('direccion', '');
+                        setValue('comuna_id', '');
+                      }
+                    }}
                     style={[styles.role, value === role && styles.selected]}>
                     <Text style={styles.roleTitle}>{role === 'CLIENTE' ? 'Cliente' : 'Trabajador'}</Text>
                     <Text style={styles.roleDescription}>{role === 'CLIENTE' ? 'Busco un servicio' : 'Ofrezco mis servicios'}</Text>
@@ -70,6 +148,35 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
               </View>
             )} />
             {errors.rol && <Text accessibilityRole="alert" style={styles.error}>{errors.rol.message}</Text>}
+            {role === 'CLIENTE' && <>
+              <Text style={styles.label}>Dirección</Text>
+              <Controller control={control} name="direccion" render={({ field: { value, onChange, onBlur } }) => (
+                <TextInput
+                  value={value}
+                  onChangeText={(text) => { setError(null); onChange(text); }}
+                  onBlur={onBlur}
+                  accessibilityLabel="Dirección"
+                  placeholder="Calle, número y referencia"
+                  placeholderTextColor="#77847E"
+                  style={[styles.input, errors.direccion && styles.invalid]}
+                  editable={!isSubmitting}
+                  autoCapitalize="words"
+                  autoComplete="street-address"
+                />
+              )} />
+              {errors.direccion && <Text accessibilityRole="alert" style={styles.error}>{errors.direccion.message}</Text>}
+              <Text style={styles.label}>Comuna</Text>
+              <Controller control={control} name="comuna_id" render={({ field: { value, onChange } }) => (
+                <CommunePicker
+                  communes={communes}
+                  selectedId={value}
+                  disabled={loadingCommunes || isSubmitting || communes.length === 0}
+                  onChange={(id) => { setError(null); onChange(id); }}
+                />
+              )} />
+              {communesError && <Text accessibilityRole="alert" style={styles.error}>{communesError}</Text>}
+              {errors.comuna_id && <Text accessibilityRole="alert" style={styles.error}>{errors.comuna_id.message}</Text>}
+            </>}
             {fields.map(({ name, label, placeholder }) => (
               <View key={name}>
                 <Text style={styles.label}>{label}</Text>
@@ -124,4 +231,13 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' }, disabled: { opacity: 0.7 },
   link: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   linkText: { color: '#256047', fontWeight: '600', textAlign: 'center' },
+  select: { justifyContent: 'center' },
+  selectText: { color: '#14251F', fontSize: 16 }, placeholder: { color: '#77847E', fontSize: 16 },
+  modalPage: { flex: 1, backgroundColor: '#F5F7F6' },
+  modalHeader: { padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#DCE6E1' },
+  modalTitle: { color: '#14251F', fontSize: 22, fontWeight: '700', flex: 1 },
+  closeButton: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },
+  communeList: { padding: 16 },
+  communeOption: { minHeight: 50, justifyContent: 'center', paddingHorizontal: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#DCE6E1' },
+  selectedCommune: { backgroundColor: '#E7F3EC', borderColor: '#256047', borderWidth: 1 },
 });

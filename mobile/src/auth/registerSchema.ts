@@ -20,7 +20,32 @@ export const registerSchema = z.object({
   password: z.string().min(8, 'Usa al menos ocho caracteres.'),
   confirmPassword: z.string().min(1, 'Repite tu contraseña.'),
   rol: z.enum(['CLIENTE', 'TRABAJADOR'], { error: 'Selecciona Cliente o Trabajador.' }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Las contraseñas no coinciden.', path: ['confirmPassword'],
+  direccion: z.string().trim(),
+  comuna_id: z.string(),
+}).superRefine((data, context) => {
+  if (data.password !== data.confirmPassword) {
+    context.addIssue({
+      code: 'custom', message: 'Las contraseñas no coinciden.', path: ['confirmPassword'],
+    });
+  }
+  if (data.rol === 'CLIENTE') {
+    if (data.direccion.length < 5) {
+      context.addIssue({
+        code: 'custom', message: 'Ingresa una dirección de al menos cinco caracteres.',
+        path: ['direccion'],
+      });
+    }
+    if (data.direccion.length > 200) {
+      context.addIssue({
+        code: 'custom', message: 'La dirección no puede superar 200 caracteres.',
+        path: ['direccion'],
+      });
+    }
+    if (!z.uuid().safeParse(data.comuna_id).success) {
+      context.addIssue({
+        code: 'custom', message: 'Selecciona una comuna.', path: ['comuna_id'],
+      });
+    }
+  }
 });
 export type RegisterValues = z.infer<typeof registerSchema>;

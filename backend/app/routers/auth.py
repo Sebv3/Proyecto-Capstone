@@ -35,13 +35,30 @@ def _auth_error(status_code: int, detail: str, invalid_status: int = 400) -> Non
 
 @router.post("/register", response_model=RegisterResponse, status_code=201)
 async def register(body: RegisterRequest, gateway: AuthGateway) -> RegisterResponse:
+    metadata = {"nombre": body.nombre, "rut": body.rut, "rol": body.rol}
+    if body.rol == "CLIENTE":
+        commune = await gateway.request(
+            "GET",
+            "/rest/v1/comunas",
+            params={"id": f"eq.{body.comuna_id}", "activa": "eq.true", "select": "id"},
+        )
+        if commune.status_code != 200:
+            _auth_error(commune.status_code, "No se pudo validar la comuna")
+        try:
+            rows = commune.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail="Respuesta de comuna inválida") from exc
+        if not isinstance(rows, list) or not rows:
+            raise HTTPException(status_code=422, detail="La comuna seleccionada no está disponible")
+        metadata.update({"direccion": body.direccion, "comuna_id": str(body.comuna_id)})
+
     response = await gateway.request(
         "POST",
         "/auth/v1/signup",
         json={
             "email": body.email,
             "password": body.password,
-            "data": {"nombre": body.nombre, "rut": body.rut, "rol": body.rol},
+            "data": metadata,
         },
     )
     _auth_error(response.status_code, "No se pudo registrar el usuario")

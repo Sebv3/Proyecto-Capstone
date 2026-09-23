@@ -5,8 +5,13 @@ import axios from 'axios';
 process.env.EXPO_PUBLIC_API_URL = 'http://localhost:8000/api/v1';
 let handler;
 axios.defaults.adapter = (config) => handler(config);
-const { login, loginErrorMessage, refreshSession, register, registerErrorMessage } = await import('../src/api/auth.ts');
+const {
+  getCommunes, login, loginErrorMessage, refreshSession, register, registerErrorMessage,
+} = await import('../src/api/auth.ts');
 const { registerSchema } = await import('../src/auth/registerSchema.ts');
+const {
+  clientProfileErrorMessage, getClientProfile,
+} = await import('../src/api/clientProfile.ts');
 const { clearStoredSession, readStoredSession, saveSession } = await import('../src/auth/sessionStorage.web.ts');
 const user = { id: 'user-1', nombre: 'Ana', email: 'ana@example.com', rol: 'CLIENTE', activo: true };
 const sessionResponse = {
@@ -17,6 +22,8 @@ const response = (config, data) => ({ config, data, status: 200, statusText: 'OK
 const registration = {
   nombre: ' Ana ', email: 'ana@example.com', rut: '12.345.678-5',
   password: 'test-only', confirmPassword: 'test-only', rol: 'CLIENTE',
+  direccion: ' Avenida Siempre Viva 123 ',
+  comuna_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
 };
 
 const browserStorage = new Map();
@@ -46,7 +53,27 @@ test('registration rejects invalid RUT, missing role, admin, and mismatched pass
     { rut: '12.345.678-0' }, { rol: undefined }, { rol: 'ADMIN' },
     { confirmPassword: 'different' }, { password: 'short', confirmPassword: 'short' },
     { email: 'invalid' }, { nombre: ' ' },
+    { direccion: '' }, { comuna_id: '' },
   ]) assert.equal(registerSchema.safeParse({ ...registration, ...change }).success, false);
+});
+
+test('worker registration does not require client address fields', () => {
+  const parsed = registerSchema.parse({
+    ...registration, rol: 'TRABAJADOR', direccion: '', comuna_id: '',
+  });
+  assert.equal(parsed.rol, 'TRABAJADOR');
+});
+
+test('registration loads the commune catalog before authentication', async () => {
+  const communes = [
+    { id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', nombre: 'Santiago' },
+  ];
+  handler = async (config) => {
+    assert.equal(config.url, '/comunas');
+    assert.equal(config.headers.Authorization, undefined);
+    return response(config, communes);
+  };
+  assert.deepEqual(await getCommunes(), communes);
 });
 
 test('registration sends only API fields and handles email confirmation on or off', async () => {
@@ -55,6 +82,8 @@ test('registration sends only API fields and handles email confirmation on or of
       assert.equal(config.url, '/auth/register');
       assert.deepEqual(JSON.parse(config.data), {
         nombre: 'Ana', email: 'ana@example.com', rut: '12345678-5', password: 'test-only', rol: 'CLIENTE',
+        direccion: 'Avenida Siempre Viva 123',
+        comuna_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       });
       return response(config, { user_id: 'user-1', email_confirmation_required: confirmation, session: { access_token: 'private' } });
     };
@@ -147,4 +176,27 @@ test('API failures produce readable errors without exposing response bodies', ()
     assert.doesNotMatch(loginErrorMessage(error), /private upstream/);
   }
   assert.match(loginErrorMessage(new axios.AxiosError('Network Error')), /conectar/);
+});
+
+test('client profile is retrieved with the current access token', async () => {
+  const profile = {
+    usuario_id: 'user-1', email: 'ana@example.com', nombre: 'Ana', rut: '12345678-5',
+    telefono: null, avatar_url: null, direccion: 'Avenida Siempre Viva 123',
+    comuna: { id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', nombre: 'Santiago' },
+    activo: true, creado_en: '2026-09-22T12:00:00Z', actualizado_en: '2026-09-22T12:00:00Z',
+  };
+  handler = async (config) => {
+    assert.equal(config.url, '/perfiles/cliente');
+    assert.equal(config.headers.Authorization, 'Bearer test-token');
+    return response(config, profile);
+  };
+  assert.deepEqual(await getClientProfile('test-token'), profile);
+});
+
+test('client profile errors are readable and do not expose private details', () => {
+  const error = new axios.AxiosError('Request failed', undefined, undefined, undefined, {
+    status: 404, data: { detail: 'private upstream details' }, statusText: '', headers: {}, config: {},
+  });
+  assert.match(clientProfileErrorMessage(error), /todavía no está completo/);
+  assert.doesNotMatch(clientProfileErrorMessage(error), /private upstream/);
 });

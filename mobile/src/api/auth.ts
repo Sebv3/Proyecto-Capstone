@@ -29,13 +29,28 @@ const api = axios.create({
 export type RegisterInput = {
   nombre: string; email: string; rut: string; password: string;
   rol: 'CLIENTE' | 'TRABAJADOR';
+  direccion?: string;
+  comuna_id?: string;
 };
 export type RegisterResult = { user_id: string; email_confirmation_required: boolean };
+export type Commune = { id: string; nombre: string };
+
+export async function getCommunes(): Promise<Commune[]> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  const { data } = await api.get<Commune[]>('/comunas');
+  if (!Array.isArray(data) || data.some((commune) => !commune.id || !commune.nombre)) {
+    throw new Error('No se pudo cargar la lista de comunas.');
+  }
+  return data;
+}
 
 export async function register(input: RegisterInput): Promise<RegisterResult> {
   if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
-  const { nombre, email, rut, password, rol } = input;
-  const { data } = await api.post<RegisterResult>('/auth/register', { nombre, email, rut, password, rol });
+  const { nombre, email, rut, password, rol, direccion, comuna_id } = input;
+  const profile = rol === 'CLIENTE' ? { direccion, comuna_id } : {};
+  const { data } = await api.post<RegisterResult>('/auth/register', {
+    nombre, email, rut, password, rol, ...profile,
+  });
   if (!data.user_id || typeof data.email_confirmation_required !== 'boolean') {
     throw new Error('No se pudo comprobar el registro. Intenta iniciar sesión antes de repetirlo.');
   }
