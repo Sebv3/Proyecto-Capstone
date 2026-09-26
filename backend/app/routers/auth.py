@@ -36,7 +36,9 @@ def _auth_error(status_code: int, detail: str, invalid_status: int = 400) -> Non
 @router.post("/register", response_model=RegisterResponse, status_code=201)
 async def register(body: RegisterRequest, gateway: AuthGateway) -> RegisterResponse:
     metadata = {"nombre": body.nombre, "rut": body.rut, "rol": body.rol}
-    if body.rol == "CLIENTE":
+    if body.rol == "TRABAJADOR":
+        metadata["direccion_base"] = body.direccion
+    if body.rol in ("CLIENTE", "TRABAJADOR"):
         commune = await gateway.request(
             "GET",
             "/rest/v1/comunas",
@@ -50,7 +52,9 @@ async def register(body: RegisterRequest, gateway: AuthGateway) -> RegisterRespo
             raise HTTPException(status_code=502, detail="Respuesta de comuna inválida") from exc
         if not isinstance(rows, list) or not rows:
             raise HTTPException(status_code=422, detail="La comuna seleccionada no está disponible")
-        metadata.update({"direccion": body.direccion, "comuna_id": str(body.comuna_id)})
+        metadata["comuna_id"] = str(body.comuna_id)
+        if body.rol == "CLIENTE":
+            metadata["direccion"] = body.direccion
 
     response = await gateway.request(
         "POST",

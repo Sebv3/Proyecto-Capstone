@@ -24,7 +24,12 @@
     },
     "scheme": "servimatch",
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      ["expo-image-picker", {
+        "photosPermission": "Permite elegir imágenes del carnet y selfie para verificar tu identidad.",
+        "cameraPermission": "Permite tomar fotos del carnet y selfie para verificar tu identidad.",
+        "microphonePermission": false
+      }]
     ]
   }
 }

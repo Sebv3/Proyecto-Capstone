@@ -20,6 +20,7 @@ class SupabaseAuthGateway:
         path: str,
         *,
         json: dict[str, Any] | None = None,
+        content: bytes | None = None,
         params: dict[str, str] | None = None,
         access_token: str | None = None,
         extra_headers: dict[str, str] | None = None,
@@ -36,6 +37,7 @@ class SupabaseAuthGateway:
                 f"{self.url}{path}",
                 headers=headers,
                 json=json,
+                content=content,
                 params=params,
             )
         except httpx.RequestError as exc:

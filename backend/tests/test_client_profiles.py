@@ -158,21 +158,23 @@ def test_reads_existing_client_profile(make_client) -> None:
 def test_updates_user_and_client_data(make_client) -> None:
     updated_user = {**USER, "nombre": "Nombre Actualizado", "telefono": "+56912345678"}
     updated_client = {**CLIENT, "direccion": "Nueva dirección 456"}
+    mutations: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        authenticated = _authenticated_response(request)
-        if authenticated is not None:
-            return authenticated
-        if request.url.path == "/rest/v1/usuarios" and request.method == "PATCH":
-            assert request.headers["Prefer"] == "return=representation"
+        if request.url.path == "/auth/v1/user":
+            return httpx.Response(200, json={"id": USER_ID})
+        if request.url.path == "/rest/v1/usuarios" and request.method == "GET":
+            return httpx.Response(200, json=[updated_user if mutations else USER])
+        if request.url.path == "/rest/v1/rpc/actualizar_perfil_cliente_actual":
+            mutations.append(request.url.path)
             assert json.loads(request.content) == {
-                "nombre": "Nombre Actualizado",
-                "telefono": "+56912345678",
+                "p_nombre": "Nombre Actualizado",
+                "p_telefono": "+56912345678",
+                "p_actualizar_telefono": True,
+                "p_direccion": "Nueva dirección 456",
+                "p_comuna_id": None,
             }
-            return httpx.Response(200, json=[updated_user])
-        if request.url.path == "/rest/v1/clientes" and request.method == "PATCH":
-            assert json.loads(request.content) == {"direccion": "Nueva dirección 456"}
-            return httpx.Response(200, json=[updated_client])
+            return httpx.Response(200, json=True)
         if request.url.path == "/rest/v1/clientes" and request.method == "GET":
             return httpx.Response(200, json=[updated_client])
         pytest.fail(f"Solicitud inesperada: {request.method} {request.url.path}")
@@ -189,6 +191,61 @@ def test_updates_user_and_client_data(make_client) -> None:
     assert response.status_code == 200
     assert response.json()["nombre"] == "Nombre Actualizado"
     assert response.json()["direccion"] == "Nueva dirección 456"
+    assert mutations == ["/rest/v1/rpc/actualizar_perfil_cliente_actual"]
+
+
+@pytest.mark.parametrize("field", ["nombre", "direccion", "comuna_id"])
+def test_profile_update_rejects_null_required_fields(make_client, field) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        authenticated = _authenticated_response(request)
+        if authenticated is not None:
+            return authenticated
+        pytest.fail("Un dato null no debe llegar a Supabase")
+
+    response = make_client(handler).patch(
+        "/api/v1/perfiles/cliente", headers=TOKEN_HEADERS, json={field: None}
+    )
+    assert response.status_code == 422
+
+
+def test_profile_update_can_clear_phone(make_client) -> None:
+    updated_user = {**USER, "telefono": None}
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        if request.url.path == "/auth/v1/user":
+            return httpx.Response(200, json={"id": USER_ID})
+        if request.url.path == "/rest/v1/usuarios":
+            calls += 1
+            return httpx.Response(200, json=[USER if calls == 1 else updated_user])
+        if request.url.path == "/rest/v1/rpc/actualizar_perfil_cliente_actual":
+            assert json.loads(request.content)["p_actualizar_telefono"] is True
+            assert json.loads(request.content)["p_telefono"] is None
+            return httpx.Response(200, json=True)
+        if request.url.path == "/rest/v1/clientes":
+            return httpx.Response(200, json=[CLIENT])
+        pytest.fail(f"Solicitud inesperada: {request.method} {request.url.path}")
+
+    response = make_client(handler).patch(
+        "/api/v1/perfiles/cliente", headers=TOKEN_HEADERS, json={"telefono": None}
+    )
+    assert response.status_code == 200
+    assert response.json()["telefono"] is None
+
+
+def test_profile_update_reports_legacy_profile_missing(make_client) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        authenticated = _authenticated_response(request)
+        if authenticated is not None:
+            return authenticated
+        assert request.url.path == "/rest/v1/rpc/actualizar_perfil_cliente_actual"
+        return httpx.Response(200, json=False)
+
+    response = make_client(handler).patch(
+        "/api/v1/perfiles/cliente", headers=TOKEN_HEADERS, json={"nombre": "Nombre Nuevo"}
+    )
+    assert response.status_code == 404
 
 
 def test_deactivates_account_through_safe_rpc(make_client) -> None:

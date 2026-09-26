@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "MVP.md",
+                "file": "DEVELOPMENT.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "MVP"
+              "title": "DEVELOPMENT"
             }
           }
         ]
@@ -190,6 +190,9 @@
   },
   "active": "2741c36943f893ca",
   "lastOpenFiles": [
+    "CONTEXT.md",
+    "README.md",
+    "MVP.md",
     "supabase/seed.sql",
     "supabase/migrations",
     "supabase/README.md",
@@ -203,7 +206,6 @@
     "backend/requirements.txt",
     "backend/tests/__init__.py",
     "backend/tests",
-    "backend/app/schemas/health.py",
     "mobile/node_modules/xml2js/README.md",
     "mobile/node_modules/xml2js/node_modules/xmlbuilder/README.md",
     "mobile/node_modules/unicode-match-property-ecmascript/README.md",
@@ -224,8 +226,6 @@
     "mobile/node_modules/log-symbols/node_modules/has-flag/readme.md",
     "mobile/node_modules/jsesc/README.md",
     "mobile/node_modules/jsc-safe-url/README.md",
-    "mobile/node_modules/jest-util/node_modules/ci-info/README.md",
-    "mobile/node_modules/jest-util/node_modules/ci-info/CHANGELOG.md",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/layers-filled.svg",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/large-arrow-right-filled.svg",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/label.svg",

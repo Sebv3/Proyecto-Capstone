@@ -47,13 +47,13 @@ class RegisterRequest(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def require_client_profile(self) -> Self:
+    def require_profile_address(self) -> Self:
         if self.rol == "CLIENTE" and (self.direccion is None or self.comuna_id is None):
             raise ValueError("Los clientes deben indicar dirección y comuna")
-        if self.rol == "TRABAJADOR" and (
-            self.direccion is not None or self.comuna_id is not None
-        ):
-            raise ValueError("El perfil de trabajador se completa después del registro")
+        if self.rol == "TRABAJADOR" and self.direccion is None:
+            raise ValueError("Los trabajadores deben indicar su dirección base")
+        if self.rol == "TRABAJADOR" and self.comuna_id is None:
+            raise ValueError("Los trabajadores deben indicar su comuna")
         return self
 
 

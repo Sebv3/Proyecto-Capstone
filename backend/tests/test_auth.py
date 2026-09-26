@@ -62,6 +62,9 @@ def _register_body(role: str = "CLIENTE") -> dict[str, str]:
                 "comuna_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
             }
         )
+    if role == "TRABAJADOR":
+        body["direccion"] = "Calle del Trabajo 123"
+        body["comuna_id"] = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     return body
 
 
@@ -95,11 +98,30 @@ def test_register_sends_profile_metadata_and_handles_email_confirmation(make_cli
 
 
 def test_register_returns_tokens_when_email_confirmation_is_disabled(make_client) -> None:
-    client = make_client(lambda _: httpx.Response(200, json={**SESSION, "user": {"id": USER_ID}}))
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/rest/v1/comunas":
+            return httpx.Response(200, json=[{"id": _register_body("TRABAJADOR")["comuna_id"]}])
+        assert json.loads(request.content)["data"]["direccion_base"] == "Calle del Trabajo 123"
+        assert json.loads(request.content)["data"]["comuna_id"] == (
+            _register_body("TRABAJADOR")["comuna_id"]
+        )
+        return httpx.Response(200, json={**SESSION, "user": {"id": USER_ID}})
+
+    client = make_client(handler)
     response = client.post("/api/v1/auth/register", json=_register_body("TRABAJADOR"))
     assert response.status_code == 201
     assert response.json()["session"] == SESSION
     assert response.json()["email_confirmation_required"] is False
+
+
+@pytest.mark.parametrize("missing", ["direccion", "comuna_id"])
+def test_worker_registration_requires_address_and_commune(make_client, missing) -> None:
+    def unexpected(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Worker without address must not reach Supabase")
+
+    body = _register_body("TRABAJADOR")
+    body.pop(missing)
+    assert make_client(unexpected).post("/api/v1/auth/register", json=body).status_code == 422
 
 
 def test_register_rejects_admin_without_contacting_supabase(make_client) -> None:

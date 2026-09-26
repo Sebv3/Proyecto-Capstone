@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { type Commune, getCommunes, register, registerErrorMessage } from '../api/auth';
 import { registerSchema, type RegisterValues } from '../auth/registerSchema';
+import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 const fields = [
@@ -68,6 +69,7 @@ function CommunePicker({ communes, selectedId, disabled, onChange }: CommunePick
 }
 
 export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Register'>) {
+  const { startSession } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ email: string; confirmation: boolean } | null>(null);
@@ -76,7 +78,7 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
   const [communesError, setCommunesError] = useState<string | null>(null);
   const submitting = useRef(false);
   const {
-    control, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting },
+    control, handleSubmit, reset, watch, formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -105,6 +107,10 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
       reset();
       setShowPassword(false);
       setSuccess({ email: values.email, confirmation: result.email_confirmation_required });
+      if (values.rol === 'TRABAJADOR' && result.session) {
+        try { await startSession(result.session); }
+        catch { setError('Cuenta creada. Inicia sesión para continuar con la verificación.'); }
+      }
     } catch (err) { setError(registerErrorMessage(err)); }
     finally { submitting.current = false; }
   });
@@ -121,8 +127,9 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
                 ? `Revisa ${success.email} y abre el enlace de confirmación antes de iniciar sesión. Revisa también spam. Si ya tenías una cuenta, puedes intentar ingresar.`
                 : 'Ya puedes iniciar sesión con tu correo y contraseña.'}
             </Text>
+            {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
             <Pressable accessibilityRole="button" style={styles.button} onPress={() => navigation.popTo('Login')}>
-              <Text style={styles.buttonText}>Ir a iniciar sesión</Text>
+              <Text style={styles.buttonText}>{success.confirmation ? 'Ya confirmé, iniciar sesión' : 'Ir a iniciar sesión'}</Text>
             </Pressable>
           </View> : <View style={styles.card}>
             <Text accessibilityRole="header" style={styles.title}>Crea tu cuenta</Text>
@@ -135,10 +142,6 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
                     disabled={isSubmitting} onPress={() => {
                       setError(null);
                       onChange(role);
-                      if (role === 'TRABAJADOR') {
-                        setValue('direccion', '');
-                        setValue('comuna_id', '');
-                      }
                     }}
                     style={[styles.role, value === role && styles.selected]}>
                     <Text style={styles.roleTitle}>{role === 'CLIENTE' ? 'Cliente' : 'Trabajador'}</Text>
@@ -148,14 +151,14 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
               </View>
             )} />
             {errors.rol && <Text accessibilityRole="alert" style={styles.error}>{errors.rol.message}</Text>}
-            {role === 'CLIENTE' && <>
-              <Text style={styles.label}>Dirección</Text>
+            {role && <>
+              <Text style={styles.label}>{role === 'TRABAJADOR' ? 'Dirección base' : 'Dirección'}</Text>
               <Controller control={control} name="direccion" render={({ field: { value, onChange, onBlur } }) => (
                 <TextInput
                   value={value}
                   onChangeText={(text) => { setError(null); onChange(text); }}
                   onBlur={onBlur}
-                  accessibilityLabel="Dirección"
+                  accessibilityLabel={role === 'TRABAJADOR' ? 'Dirección base' : 'Dirección'}
                   placeholder="Calle, número y referencia"
                   placeholderTextColor="#77847E"
                   style={[styles.input, errors.direccion && styles.invalid]}
@@ -165,6 +168,8 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
                 />
               )} />
               {errors.direccion && <Text accessibilityRole="alert" style={styles.error}>{errors.direccion.message}</Text>}
+            </>}
+            {role && <>
               <Text style={styles.label}>Comuna</Text>
               <Controller control={control} name="comuna_id" render={({ field: { value, onChange } }) => (
                 <CommunePicker
@@ -201,7 +206,7 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
             <Pressable accessibilityRole="button" disabled={isSubmitting} accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
               style={[styles.button, isSubmitting && styles.disabled]} onPress={() => void submit()}>
               {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
-              <Text style={styles.buttonText}>{isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}</Text>
+              <Text style={styles.buttonText}>{isSubmitting ? 'Creando cuenta…' : role === 'TRABAJADOR' ? 'Crear cuenta y continuar' : 'Crear cuenta'}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" disabled={isSubmitting} style={styles.link} onPress={() => navigation.goBack()}>
               <Text style={styles.linkText}>Ya tengo cuenta. Iniciar sesión</Text>

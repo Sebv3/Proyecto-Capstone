@@ -9,6 +9,8 @@ contraseña. En web, la sesión se conserva solo durante la pestaña actual medi
 `sessionStorage`, porque el navegador no ofrece un equivalente de SecureStore.
 Cerrar sesión elimina los tokens y el perfil local; todavía no existe revocación
 remota de sesiones en el backend.
+Mientras la app permanece abierta, la sesión se renueva antes de vencer. Si una
+petición protegida recibe 401, se intenta una renovación y se reintenta una vez.
 Mientras se comprueba la sesión guardada, la navegación muestra una pantalla de
 carga. Login y Perfil se montan únicamente después de conocer el estado real, por
 lo que recargar la app no debe mostrar brevemente el formulario de ingreso.
@@ -16,8 +18,28 @@ Desde Login, **Crear cuenta** abre Registro con selección obligatoria de Client
 o Trabajador, nombre, correo, RUT, contraseña y confirmación. Se valida el dígito
 verificador del RUT antes de enviar `POST /api/v1/auth/register`. Al aceptar el
 registro se limpian los campos y se indica si hace falta confirmar el correo.
-El usuario regresa a Login para ingresar. No se crea automáticamente la ficha
-documental del trabajador ni se lo aprueba para publicar servicios.
+El trabajador indica dirección base y comuna en ese formulario. Si debe confirmar el
+correo, ve una vista intermedia y después inicia sesión. Si recibe una sesión
+al registrarse, continúa directamente al paso documental. La cuenta y su
+ubicación se crean juntas, pero eso no implica aprobación para trabajar.
+
+En **Mi perfil**, el cliente puede editar nombre, teléfono, dirección y comuna
+sin salir de la pantalla. El RUT y el correo se muestran como datos no editables.
+Si su cuenta es anterior a la creación automática de perfiles, se le pide
+completar dirección y comuna allí mismo. La desactivación de cuenta requiere una
+confirmación y después cierra la sesión local.
+
+Antes de Home, el trabajador sin documentos o con verificación rechazada ve una
+pantalla dedicada para subir frente y reverso del carnet más una selfie. Esa
+pantalla no permite editar la dirección ni la comuna. Las imágenes deben ser JPEG, PNG o WebP
+de hasta 5 MiB cada una. Una vez enviadas, entra al Home limitado con estado
+`PENDIENTE` y puede editar dirección y comuna desde **Mi perfil**. Si vuelve a ser
+rechazado, regresa al paso documental con el motivo. Con `APROBADA` entra al
+Home aprobado. Todavía no existen las funciones de publicar o aceptar trabajos;
+cuando se creen deberán comprobar `APROBADA` también en el backend. La revisión
+se realiza manualmente en Supabase; no hay controles de administrador en la app.
+Las cuentas antiguas sin comuna vuelven a **Mi perfil** para elegirla antes de
+entrar al paso documental; la app no deduce la comuna del texto de la dirección.
 
 ## Ejecutar
 
@@ -46,7 +68,7 @@ En el dispositivo, comprobar:
 2. Mostrar/ocultar contraseña y acceso al botón con el teclado abierto.
 3. Credenciales incorrectas: error y posibilidad de reintentar.
 4. Correo pendiente de confirmación: aviso explícito.
-5. Usuario confirmado: perfil real después de ingresar.
+5. Trabajador confirmado: paso documental antes de Home; cliente: su perfil.
 6. Cerrar sesión: regreso al Login sin acceso al perfil mediante el botón Atrás.
 7. API apagada: error de conexión y botón disponible para reintentar.
 8. Registro: no permite enviar sin perfil, con RUT incorrecto o contraseñas diferentes.
@@ -59,7 +81,9 @@ En el dispositivo, comprobar:
 12. En web, recargar la pestaña mantiene la sesión; cerrar la pestaña elimina la
     sesión temporal.
 13. Al recargar con una sesión guardada, debe aparecer brevemente “Preparando tu
-    sesión…” y luego Perfil, sin mostrar Login entre ambas pantallas.
+    sesión…” y luego la pantalla correspondiente, sin mostrar Login entre ambas.
+14. Trabajador pendiente: Home limitado, edición de dirección desde Mi perfil y
+    retorno al paso documental si cambia a `RECHAZADA`.
 
 Las pruebas HTTP usan respuestas simuladas; el recorrido real debe comprobarse
 con una cuenta propia sin compartir contraseñas ni tokens.

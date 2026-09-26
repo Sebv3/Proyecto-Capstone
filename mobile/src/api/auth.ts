@@ -32,7 +32,11 @@ export type RegisterInput = {
   direccion?: string;
   comuna_id?: string;
 };
-export type RegisterResult = { user_id: string; email_confirmation_required: boolean };
+export type RegisterResult = {
+  user_id: string;
+  email_confirmation_required: boolean;
+  session: AuthSession | null;
+};
 export type Commune = { id: string; nombre: string };
 
 export async function getCommunes(): Promise<Commune[]> {
@@ -47,14 +51,21 @@ export async function getCommunes(): Promise<Commune[]> {
 export async function register(input: RegisterInput): Promise<RegisterResult> {
   if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
   const { nombre, email, rut, password, rol, direccion, comuna_id } = input;
-  const profile = rol === 'CLIENTE' ? { direccion, comuna_id } : {};
-  const { data } = await api.post<RegisterResult>('/auth/register', {
+  const profile = { direccion, comuna_id };
+  const { data } = await api.post<{
+    user_id: string; email_confirmation_required: boolean;
+    session: Omit<AuthSession, 'expires_at'> | null;
+  }>('/auth/register', {
     nombre, email, rut, password, rol, ...profile,
   });
   if (!data.user_id || typeof data.email_confirmation_required !== 'boolean') {
     throw new Error('No se pudo comprobar el registro. Intenta iniciar sesión antes de repetirlo.');
   }
-  return { user_id: data.user_id, email_confirmation_required: data.email_confirmation_required };
+  return {
+    user_id: data.user_id,
+    email_confirmation_required: data.email_confirmation_required,
+    session: data.session ? parseSession(data.session) : null,
+  };
 }
 
 export function registerErrorMessage(error: unknown): string {

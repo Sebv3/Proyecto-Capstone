@@ -10,9 +10,11 @@ const {
 } = await import('../src/api/auth.ts');
 const { registerSchema } = await import('../src/auth/registerSchema.ts');
 const {
-  clientProfileErrorMessage, getClientProfile,
+  clientProfileErrorMessage, createClientProfile, deactivateClientAccount,
+  getClientProfile, isMissingClientProfile, updateClientProfile,
 } = await import('../src/api/clientProfile.ts');
 const { clearStoredSession, readStoredSession, saveSession } = await import('../src/auth/sessionStorage.web.ts');
+const { requestWithSession } = await import('../src/auth/requestWithSession.ts');
 const user = { id: 'user-1', nombre: 'Ana', email: 'ana@example.com', rol: 'CLIENTE', activo: true };
 const sessionResponse = {
   access_token: 'test-token', refresh_token: 'refresh-token', token_type: 'bearer', expires_in: 3600,
@@ -57,11 +59,13 @@ test('registration rejects invalid RUT, missing role, admin, and mismatched pass
   ]) assert.equal(registerSchema.safeParse({ ...registration, ...change }).success, false);
 });
 
-test('worker registration does not require client address fields', () => {
+test('worker registration requires base address and commune', () => {
   const parsed = registerSchema.parse({
-    ...registration, rol: 'TRABAJADOR', direccion: '', comuna_id: '',
+    ...registration, rol: 'TRABAJADOR', direccion: 'Calle del Trabajo 123',
   });
   assert.equal(parsed.rol, 'TRABAJADOR');
+  assert.equal(registerSchema.safeParse({ ...registration, rol: 'TRABAJADOR', direccion: '', comuna_id: '' }).success, false);
+  assert.equal(registerSchema.safeParse({ ...registration, rol: 'TRABAJADOR', comuna_id: '' }).success, false);
 });
 
 test('registration loads the commune catalog before authentication', async () => {
@@ -85,12 +89,40 @@ test('registration sends only API fields and handles email confirmation on or of
         direccion: 'Avenida Siempre Viva 123',
         comuna_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       });
-      return response(config, { user_id: 'user-1', email_confirmation_required: confirmation, session: { access_token: 'private' } });
+      return response(config, {
+        user_id: 'user-1', email_confirmation_required: confirmation,
+        session: confirmation ? null : sessionResponse,
+      });
     };
-    assert.deepEqual(await register(registerSchema.parse(registration)), {
-      user_id: 'user-1', email_confirmation_required: confirmation,
-    });
+    const result = await register(registerSchema.parse(registration));
+    assert.equal(result.user_id, 'user-1');
+    assert.equal(result.email_confirmation_required, confirmation);
+    assert.equal(result.session === null, confirmation);
+    if (result.session) {
+      assert.equal(result.session.access_token, sessionResponse.access_token);
+      assert.ok(result.session.expires_at > Date.now());
+    }
   }
+});
+
+test('worker registration sends its base address and returns a usable session', async () => {
+  const worker = registerSchema.parse({
+    ...registration, rol: 'TRABAJADOR', direccion: ' Calle del Trabajo 123 ',
+  });
+  handler = async (config) => {
+    assert.equal(config.url, '/auth/register');
+    assert.deepEqual(JSON.parse(config.data), {
+      nombre: 'Ana', email: 'ana@example.com', rut: '12345678-5',
+      password: 'test-only', rol: 'TRABAJADOR', direccion: 'Calle del Trabajo 123',
+      comuna_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+    });
+    return response(config, {
+      user_id: 'worker-1', email_confirmation_required: false, session: sessionResponse,
+    });
+  };
+  const result = await register(worker);
+  assert.equal(result.email_confirmation_required, false);
+  assert.equal(result.session?.access_token, sessionResponse.access_token);
 });
 
 test('registration errors do not expose upstream details', () => {
@@ -197,6 +229,55 @@ test('client profile errors are readable and do not expose private details', () 
   const error = new axios.AxiosError('Request failed', undefined, undefined, undefined, {
     status: 404, data: { detail: 'private upstream details' }, statusText: '', headers: {}, config: {},
   });
-  assert.match(clientProfileErrorMessage(error), /todavía no está completo/);
+  assert.match(clientProfileErrorMessage(error), /Completa tus datos/);
+  assert.equal(isMissingClientProfile(error), true);
   assert.doesNotMatch(clientProfileErrorMessage(error), /private upstream/);
+});
+
+test('client profile create, edit, and deactivate use the current token', async () => {
+  const profile = {
+    usuario_id: 'user-1', email: 'ana@example.com', nombre: 'Ana', rut: '12345678-5',
+    telefono: null, avatar_url: null, direccion: 'Avenida Siempre Viva 123',
+    comuna: { id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', nombre: 'Santiago' },
+    activo: true, creado_en: '2026-09-22T12:00:00Z', actualizado_en: '2026-09-22T12:00:00Z',
+  };
+  const calls = [];
+  handler = async (config) => {
+    calls.push({ method: config.method, data: config.data && JSON.parse(config.data) });
+    assert.equal(config.url, '/perfiles/cliente');
+    assert.equal(config.headers.Authorization, 'Bearer test-token');
+    return response(config, profile);
+  };
+  await createClientProfile('test-token', { direccion: profile.direccion, comuna_id: profile.comuna.id });
+  await updateClientProfile('test-token', {
+    nombre: 'Ana', telefono: null, direccion: profile.direccion, comuna_id: profile.comuna.id,
+  });
+  await deactivateClientAccount('test-token');
+  assert.deepEqual(calls.map((call) => call.method), ['post', 'patch', 'delete']);
+  assert.deepEqual(calls[0].data, { direccion: profile.direccion, comuna_id: profile.comuna.id });
+  assert.equal(calls[1].data.telefono, null);
+});
+
+test('protected requests refresh an expiring session before sending data', async () => {
+  const old = { ...sessionResponse, expires_at: Date.now() + 1_000 };
+  const next = { ...old, access_token: 'new-token', expires_at: Date.now() + 3_600_000 };
+  let renewals = 0;
+  const result = await requestWithSession(old, async () => { renewals++; return next; }, async (token) => token);
+  assert.equal(result, 'new-token');
+  assert.equal(renewals, 1);
+});
+
+test('protected requests retry once after a rejected access token', async () => {
+  const current = { ...sessionResponse, expires_at: Date.now() + 3_600_000 };
+  const attempted = [];
+  const result = await requestWithSession(current,
+    async () => ({ ...current, access_token: 'rotated-token' }),
+    async (token) => {
+      attempted.push(token);
+      if (token === 'test-token') throw new axios.AxiosError('Expired', 'ERR_BAD_REQUEST', undefined, undefined,
+        { status: 401, data: {}, statusText: '', headers: {}, config: {} });
+      return 'ok';
+    });
+  assert.equal(result, 'ok');
+  assert.deepEqual(attempted, ['test-token', 'rotated-token']);
 });

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.auth import router as auth_router
 from app.routers.client_profiles import router as client_profiles_router
+from app.routers.worker_verification import router as worker_verification_router
 from app.schemas.health import HealthResponse
 
 
@@ -29,6 +30,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(client_profiles_router)
+app.include_router(worker_verification_router)
 
 
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["Sistema"])

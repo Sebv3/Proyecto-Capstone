@@ -28,7 +28,7 @@ export const registerSchema = z.object({
       code: 'custom', message: 'Las contraseñas no coinciden.', path: ['confirmPassword'],
     });
   }
-  if (data.rol === 'CLIENTE') {
+  if (data.rol === 'CLIENTE' || data.rol === 'TRABAJADOR') {
     if (data.direccion.length < 5) {
       context.addIssue({
         code: 'custom', message: 'Ingresa una dirección de al menos cinco caracteres.',
@@ -41,6 +41,8 @@ export const registerSchema = z.object({
         path: ['direccion'],
       });
     }
+  }
+  if (data.rol === 'CLIENTE' || data.rol === 'TRABAJADOR') {
     if (!z.uuid().safeParse(data.comuna_id).success) {
       context.addIssue({
         code: 'custom', message: 'Selecciona una comuna.', path: ['comuna_id'],

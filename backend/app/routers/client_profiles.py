@@ -151,44 +151,37 @@ async def update_client_profile(
     if commune_id is not None:
         await _ensure_active_commune(commune_id, gateway, access_token)
 
-    user_changes = {key: changes[key] for key in ("nombre", "telefono") if key in changes}
-    if "nombre" in user_changes:
-        user_changes["nombre"] = user_changes["nombre"].strip()
-    if user_changes:
-        response = await gateway.request(
-            "PATCH",
+    response = await gateway.request(
+        "POST",
+        "/rest/v1/rpc/actualizar_perfil_cliente_actual",
+        json={
+            "p_nombre": changes.get("nombre"),
+            "p_telefono": changes.get("telefono"),
+            "p_actualizar_telefono": "telefono" in changes,
+            "p_direccion": changes.get("direccion"),
+            "p_comuna_id": str(commune_id) if commune_id is not None else None,
+        },
+        access_token=access_token,
+    )
+    _upstream_error(response.status_code, "No se pudo actualizar el perfil cliente")
+    try:
+        if response.json() is not True:
+            raise HTTPException(status_code=404, detail="Perfil cliente no encontrado")
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Respuesta de actualización inválida") from exc
+
+    if "nombre" in changes or "telefono" in changes:
+        updated_user = await gateway.request(
+            "GET",
             "/rest/v1/usuarios",
-            params={"id": f"eq.{current_user.id}"},
-            json=user_changes,
+            params={"id": f"eq.{current_user.id}", "select": "*"},
             access_token=access_token,
-            extra_headers={"Prefer": "return=representation"},
         )
-        _upstream_error(response.status_code, "No se pudieron actualizar los datos personales")
+        _upstream_error(updated_user.status_code, "No se pudo consultar el usuario actualizado")
         try:
-            current_user = User.model_validate(response.json()[0])
+            current_user = User.model_validate(updated_user.json()[0])
         except (IndexError, TypeError, ValueError) as exc:
             raise HTTPException(status_code=502, detail="Respuesta de usuario inválida") from exc
-
-    client_changes: dict[str, Any] = {}
-    if "direccion" in changes:
-        client_changes["direccion"] = changes["direccion"].strip()
-    if commune_id is not None:
-        client_changes["comuna_id"] = str(commune_id)
-    if client_changes:
-        response = await gateway.request(
-            "PATCH",
-            "/rest/v1/clientes",
-            params={"usuario_id": f"eq.{current_user.id}"},
-            json=client_changes,
-            access_token=access_token,
-            extra_headers={"Prefer": "return=representation"},
-        )
-        _upstream_error(response.status_code, "No se pudo actualizar el perfil cliente")
-        try:
-            if not response.json():
-                raise HTTPException(status_code=404, detail="Perfil cliente no encontrado")
-        except ValueError as exc:
-            raise HTTPException(status_code=502, detail="Respuesta de perfil inválida") from exc
 
     return await _read_profile(current_user, gateway, access_token)
 

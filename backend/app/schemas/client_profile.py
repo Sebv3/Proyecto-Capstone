@@ -32,6 +32,9 @@ class ClientProfileUpdate(BaseModel):
     def require_a_change(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("Debes enviar al menos un dato para actualizar")
+        for field in ("nombre", "direccion", "comuna_id"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} no puede ser null")
         return self
 
 
