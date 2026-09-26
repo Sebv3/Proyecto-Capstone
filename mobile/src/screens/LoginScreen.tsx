@@ -88,7 +88,7 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
             </Pressable>
           </View>
           <Pressable accessibilityRole="button" disabled={isSubmitting}
-            onPress={() => navigation.navigate('Register')} style={styles.toggle}>
+            onPress={() => navigation.navigate('RegistrationRole')} style={styles.toggle}>
             <Text style={[styles.footer, styles.toggleText]}>¿No tienes cuenta? Crear cuenta</Text>
           </Pressable>
           <Text style={styles.footer}>Personas que necesitan ayuda.{'\n'}Personas que saben ayudar.</Text>

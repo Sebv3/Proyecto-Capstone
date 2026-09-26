@@ -13,13 +13,15 @@ import { EmailConfirmedScreen } from '../screens/EmailConfirmedScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { RegistrationRoleScreen } from '../screens/RegistrationRoleScreen';
 import { SessionLoadingScreen } from '../screens/SessionLoadingScreen';
 import { WorkerDocumentsScreen } from '../screens/WorkerDocumentsScreen';
 import { WorkerHomeScreen } from '../screens/WorkerHomeScreen';
 
 export type RootStackParamList = {
   Login: undefined;
-  Register: undefined;
+  RegistrationRole: undefined;
+  Register: { role: 'CLIENTE' | 'TRABAJADOR' };
   Profile: undefined;
   WorkerDocuments: undefined;
   WorkerHome: undefined;
@@ -114,6 +116,7 @@ export function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? <>
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="RegistrationRole" component={RegistrationRoleScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
       </> : user.rol === 'TRABAJADOR' && flow.state === 'legacy-profile' ?
         <Stack.Screen name="Profile">
