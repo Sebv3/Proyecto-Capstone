@@ -68,12 +68,21 @@ def _register_body(role: str = "CLIENTE") -> dict[str, str]:
     return body
 
 
-def test_register_sends_profile_metadata_and_handles_email_confirmation(make_client) -> None:
+def test_register_sends_profile_metadata_and_handles_email_confirmation(
+    make_client, monkeypatch
+) -> None:
+    monkeypatch.setenv(
+        "EMAIL_CONFIRM_REDIRECT_URL", "http://localhost:8081/correo-confirmado"
+    )
+
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/rest/v1/comunas":
             assert "Authorization" not in request.headers
             return httpx.Response(200, json=[{"id": _register_body()["comuna_id"]}])
         assert request.url.path == "/auth/v1/signup"
+        assert request.url.params["redirect_to"] == (
+            "http://localhost:8081/correo-confirmado"
+        )
         assert request.headers["apikey"] == "sb_publishable_test"
         assert json.loads(request.content) == {
             "email": "persona@example.com",

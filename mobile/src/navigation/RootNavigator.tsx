@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Linking from 'expo-linking';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,6 +9,7 @@ import {
   type WorkerVerification,
 } from '../api/workerVerification';
 import { useAuth } from '../auth/AuthContext';
+import { EmailConfirmedScreen } from '../screens/EmailConfirmedScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
@@ -21,8 +23,13 @@ export type RootStackParamList = {
   Profile: undefined;
   WorkerDocuments: undefined;
   WorkerHome: undefined;
+  EmailConfirmed: undefined;
 };
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const linking = {
+  prefixes: [Linking.createURL('/')],
+  config: { screens: { EmailConfirmed: 'correo-confirmado' } },
+};
 
 type WorkerFlow = {
   userId: string | null;
@@ -103,7 +110,7 @@ export function RootNavigator() {
     </SafeAreaView>;
   }
 
-  return <NavigationContainer>
+  return <NavigationContainer linking={linking}>
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? <>
         <Stack.Screen name="Login" component={LoginScreen} />
@@ -125,6 +132,11 @@ export function RootNavigator() {
           {({ navigation }) => <ProfileScreen onBack={() => navigation.goBack()} />}
         </Stack.Screen>
       </> : <Stack.Screen name="Profile" component={ProfileScreen} />}
+      <Stack.Screen name="EmailConfirmed">
+        {({ navigation }) => <EmailConfirmedScreen onContinue={() => {
+          navigation.navigate(user ? 'Profile' : 'Login');
+        }} />}
+      </Stack.Screen>
     </Stack.Navigator>
   </NavigationContainer>;
 }

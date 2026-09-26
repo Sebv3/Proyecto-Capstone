@@ -12,13 +12,76 @@ import { registerSchema, type RegisterValues } from '../auth/registerSchema';
 import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
-const fields = [
-  { name: 'nombre', label: 'Nombre', placeholder: 'Tu nombre' },
+const identityFields = [
+  { name: 'nombre', label: 'Nombre y apellidos', placeholder: 'Tu nombre completo' },
   { name: 'email', label: 'Correo electrónico', placeholder: 'tu@correo.cl' },
   { name: 'rut', label: 'RUT', placeholder: '12.345.678-5' },
+] as const;
+
+const passwordFields = [
   { name: 'password', label: 'Contraseña', placeholder: 'Al menos ocho caracteres' },
   { name: 'confirmPassword', label: 'Confirmar contraseña', placeholder: 'Repite tu contraseña' },
 ] as const;
+
+type RegistrationRole = 'CLIENTE' | 'TRABAJADOR';
+
+const roleOptions: { value: RegistrationRole; label: string; description: string }[] = [
+  { value: 'CLIENTE', label: 'Cliente', description: 'Quiero contratar servicios' },
+  { value: 'TRABAJADOR', label: 'Trabajador', description: 'Quiero ofrecer mis servicios' },
+];
+
+type RolePickerProps = {
+  selectedRole: RegistrationRole | undefined;
+  disabled: boolean;
+  onChange: (role: RegistrationRole) => void;
+};
+
+function RolePicker({ selectedRole, disabled, onChange }: RolePickerProps) {
+  const [open, setOpen] = useState(false);
+  const selected = roleOptions.find((option) => option.value === selectedRole);
+  return <>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Seleccionar tipo de cuenta"
+      disabled={disabled}
+      onPress={() => setOpen(true)}
+      style={[styles.input, styles.select, disabled && styles.disabled]}
+    >
+      <View style={styles.selectContent}>
+        <Text style={selected ? styles.selectText : styles.placeholder}>
+          {selected?.label ?? 'Selecciona un perfil'}
+        </Text>
+        {selected && <Text style={styles.selectDescription}>{selected.description}</Text>}
+      </View>
+      <Text aria-hidden style={styles.chevron}>›</Text>
+    </Pressable>
+    <Modal animationType="slide" visible={open} onRequestClose={() => setOpen(false)}>
+      <SafeAreaView style={styles.modalPage}>
+        <View style={styles.modalHeader}>
+          <Text accessibilityRole="header" style={styles.modalTitle}>Selecciona tu perfil</Text>
+          <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={styles.closeButton}>
+            <Text style={styles.linkText}>Cerrar</Text>
+          </Pressable>
+        </View>
+        <View accessibilityRole="radiogroup" style={styles.roleList}>
+          {roleOptions.map((option) => <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: option.value === selectedRole }}
+            onPress={() => { onChange(option.value); setOpen(false); }}
+            style={[
+              styles.roleOption,
+              option.value === selectedRole && styles.selectedRoleOption,
+            ]}
+          >
+            <Text style={styles.roleTitle}>{option.label}</Text>
+            <Text style={styles.roleDescription}>{option.description}</Text>
+          </Pressable>)}
+        </View>
+      </SafeAreaView>
+    </Modal>
+  </>;
+}
 
 type CommunePickerProps = {
   communes: Commune[];
@@ -78,7 +141,8 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
   const [communesError, setCommunesError] = useState<string | null>(null);
   const submitting = useRef(false);
   const {
-    control, handleSubmit, reset, watch, formState: { errors, isSubmitting },
+    clearErrors, control, handleSubmit, reset, setValue, watch,
+    formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -134,24 +198,38 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
           </View> : <View style={styles.card}>
             <Text accessibilityRole="header" style={styles.title}>Crea tu cuenta</Text>
             <Text style={styles.description}>Elige cómo quieres participar en ServiMatch.</Text>
-            <Text style={styles.label}>Quiero registrarme como</Text>
+            <Text style={styles.label}>Tipo de cuenta</Text>
             <Controller control={control} name="rol" render={({ field: { value, onChange } }) => (
-              <View accessibilityRole="radiogroup" style={styles.roles}>
-                {(['CLIENTE', 'TRABAJADOR'] as const).map((role) => (
-                  <Pressable key={role} accessibilityRole="radio" accessibilityState={{ checked: value === role, disabled: isSubmitting }}
-                    disabled={isSubmitting} onPress={() => {
-                      setError(null);
-                      onChange(role);
-                    }}
-                    style={[styles.role, value === role && styles.selected]}>
-                    <Text style={styles.roleTitle}>{role === 'CLIENTE' ? 'Cliente' : 'Trabajador'}</Text>
-                    <Text style={styles.roleDescription}>{role === 'CLIENTE' ? 'Busco un servicio' : 'Ofrezco mis servicios'}</Text>
-                  </Pressable>
-                ))}
-              </View>
+              <RolePicker
+                selectedRole={value}
+                disabled={isSubmitting}
+                onChange={(nextRole) => {
+                  setError(null);
+                  if (value !== nextRole) {
+                    setValue('direccion', '');
+                    setValue('comuna_id', '');
+                    clearErrors(['direccion', 'comuna_id']);
+                  }
+                  onChange(nextRole);
+                }}
+              />
             )} />
             {errors.rol && <Text accessibilityRole="alert" style={styles.error}>{errors.rol.message}</Text>}
             {role && <>
+              {identityFields.map(({ name, label, placeholder }) => (
+                <View key={name}>
+                  <Text style={styles.label}>{label}</Text>
+                  <Controller control={control} name={name} render={({ field: { value, onChange, onBlur, ref } }) => (
+                    <TextInput ref={ref} value={value} onChangeText={(text) => { setError(null); onChange(text); }} onBlur={onBlur}
+                      accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#77847E"
+                      style={[styles.input, errors[name] && styles.invalid]} editable={!isSubmitting}
+                      autoCapitalize={name === 'nombre' ? 'words' : 'none'} autoCorrect={false}
+                      keyboardType={name === 'email' ? 'email-address' : 'default'}
+                      autoComplete={name === 'email' ? 'email' : name === 'nombre' ? 'name' : 'off'} />
+                  )} />
+                  {errors[name] && <Text accessibilityRole="alert" style={styles.error}>{errors[name]?.message}</Text>}
+                </View>
+              ))}
               <Text style={styles.label}>{role === 'TRABAJADOR' ? 'Dirección base' : 'Dirección'}</Text>
               <Controller control={control} name="direccion" render={({ field: { value, onChange, onBlur } }) => (
                 <TextInput
@@ -181,33 +259,31 @@ export function RegisterScreen({ navigation }: NativeStackScreenProps<RootStackP
               )} />
               {communesError && <Text accessibilityRole="alert" style={styles.error}>{communesError}</Text>}
               {errors.comuna_id && <Text accessibilityRole="alert" style={styles.error}>{errors.comuna_id.message}</Text>}
+              {passwordFields.map(({ name, label, placeholder }) => (
+                <View key={name}>
+                  <Text style={styles.label}>{label}</Text>
+                  <Controller control={control} name={name} render={({ field: { value, onChange, onBlur, ref } }) => (
+                    <TextInput ref={ref} value={value} onChangeText={(text) => { setError(null); onChange(text); }} onBlur={onBlur}
+                      accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#77847E"
+                      style={[styles.input, errors[name] && styles.invalid]} editable={!isSubmitting}
+                      autoCapitalize="none" autoCorrect={false}
+                      secureTextEntry={!showPassword} autoComplete="new-password"
+                      onSubmitEditing={name === 'confirmPassword' ? () => void submit() : undefined}
+                      returnKeyType={name === 'confirmPassword' ? 'go' : 'default'} />
+                  )} />
+                  {errors[name] && <Text accessibilityRole="alert" style={styles.error}>{errors[name]?.message}</Text>}
+                </View>
+              ))}
+              <Pressable accessibilityRole="button" style={styles.link} onPress={() => setShowPassword(!showPassword)}>
+                <Text style={styles.linkText}>{showPassword ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}</Text>
+              </Pressable>
+              {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
+              <Pressable accessibilityRole="button" disabled={isSubmitting} accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
+                style={[styles.button, isSubmitting && styles.disabled]} onPress={() => void submit()}>
+                {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
+                <Text style={styles.buttonText}>{isSubmitting ? 'Creando cuenta…' : role === 'TRABAJADOR' ? 'Crear cuenta y continuar' : 'Crear cuenta'}</Text>
+              </Pressable>
             </>}
-            {fields.map(({ name, label, placeholder }) => (
-              <View key={name}>
-                <Text style={styles.label}>{label}</Text>
-                <Controller control={control} name={name} render={({ field: { value, onChange, onBlur, ref } }) => (
-                  <TextInput ref={ref} value={value} onChangeText={(text) => { setError(null); onChange(text); }} onBlur={onBlur}
-                    accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#77847E"
-                    style={[styles.input, errors[name] && styles.invalid]} editable={!isSubmitting}
-                    autoCapitalize={name === 'nombre' ? 'words' : 'none'} autoCorrect={false}
-                    keyboardType={name === 'email' ? 'email-address' : 'default'}
-                    secureTextEntry={(name === 'password' || name === 'confirmPassword') && !showPassword}
-                    autoComplete={name === 'email' ? 'email' : name === 'nombre' ? 'name' : name === 'rut' ? 'off' : 'new-password'}
-                    onSubmitEditing={name === 'confirmPassword' ? () => void submit() : undefined}
-                    returnKeyType={name === 'confirmPassword' ? 'go' : 'default'} />
-                )} />
-                {errors[name] && <Text accessibilityRole="alert" style={styles.error}>{errors[name]?.message}</Text>}
-              </View>
-            ))}
-            <Pressable accessibilityRole="button" style={styles.link} onPress={() => setShowPassword(!showPassword)}>
-              <Text style={styles.linkText}>{showPassword ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}</Text>
-            </Pressable>
-            {error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>}
-            <Pressable accessibilityRole="button" disabled={isSubmitting} accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
-              style={[styles.button, isSubmitting && styles.disabled]} onPress={() => void submit()}>
-              {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
-              <Text style={styles.buttonText}>{isSubmitting ? 'Creando cuenta…' : role === 'TRABAJADOR' ? 'Crear cuenta y continuar' : 'Crear cuenta'}</Text>
-            </Pressable>
             <Pressable accessibilityRole="button" disabled={isSubmitting} style={styles.link} onPress={() => navigation.goBack()}>
               <Text style={styles.linkText}>Ya tengo cuenta. Iniciar sesión</Text>
             </Pressable>
@@ -226,8 +302,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '700', color: '#14251F' },
   description: { fontSize: 15, color: '#52615C', lineHeight: 23, marginTop: 12 },
   label: { fontSize: 14, fontWeight: '600', color: '#14251F', marginTop: 20, marginBottom: 8 },
-  roles: { gap: 10 }, role: { borderWidth: 1, borderColor: '#C9D6CF', borderRadius: 10, padding: 14 },
-  selected: { backgroundColor: '#E7F3EC', borderColor: '#256047', borderWidth: 2 },
   roleTitle: { fontSize: 16, color: '#14251F', fontWeight: '700' },
   roleDescription: { fontSize: 14, color: '#52615C', marginTop: 4 },
   input: { minHeight: 52, borderWidth: 1, borderColor: '#C9D6CF', borderRadius: 10, paddingHorizontal: 12, fontSize: 16, color: '#14251F' },
@@ -236,12 +310,18 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' }, disabled: { opacity: 0.7 },
   link: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   linkText: { color: '#256047', fontWeight: '600', textAlign: 'center' },
-  select: { justifyContent: 'center' },
+  select: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectContent: { flex: 1 },
   selectText: { color: '#14251F', fontSize: 16 }, placeholder: { color: '#77847E', fontSize: 16 },
+  selectDescription: { color: '#52615C', fontSize: 13, marginTop: 3 },
+  chevron: { color: '#52615C', fontSize: 28, marginLeft: 12 },
   modalPage: { flex: 1, backgroundColor: '#F5F7F6' },
   modalHeader: { padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#DCE6E1' },
   modalTitle: { color: '#14251F', fontSize: 22, fontWeight: '700', flex: 1 },
   closeButton: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },
+  roleList: { padding: 16, gap: 12 },
+  roleOption: { minHeight: 78, justifyContent: 'center', padding: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE6E1', borderRadius: 12 },
+  selectedRoleOption: { backgroundColor: '#E7F3EC', borderColor: '#256047', borderWidth: 2 },
   communeList: { padding: 16 },
   communeOption: { minHeight: 50, justifyContent: 'center', paddingHorizontal: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#DCE6E1' },
   selectedCommune: { backgroundColor: '#E7F3EC', borderColor: '#256047', borderWidth: 1 },

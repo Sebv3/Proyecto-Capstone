@@ -1,3 +1,4 @@
+import os
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -56,9 +57,11 @@ async def register(body: RegisterRequest, gateway: AuthGateway) -> RegisterRespo
         if body.rol == "CLIENTE":
             metadata["direccion"] = body.direccion
 
+    redirect_url = os.getenv("EMAIL_CONFIRM_REDIRECT_URL", "").strip()
     response = await gateway.request(
         "POST",
         "/auth/v1/signup",
+        params={"redirect_to": redirect_url} if redirect_url else None,
         json={
             "email": body.email,
             "password": body.password,
