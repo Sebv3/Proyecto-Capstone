@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { loginErrorMessage } from '../api/auth';
 import { useAuth } from '../auth/AuthContext';
+import { blurFocusedElementOnWeb } from '../navigation/webFocus';
 
 const schema = z.object({
   email: z.string().trim().email('Ingresa un correo válido.'),
@@ -88,7 +89,10 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
             </Pressable>
           </View>
           <Pressable accessibilityRole="button" disabled={isSubmitting}
-            onPress={() => navigation.navigate('RegistrationRole')} style={styles.toggle}>
+            onPress={() => {
+              blurFocusedElementOnWeb();
+              navigation.navigate('RegistrationRole');
+            }} style={styles.toggle}>
             <Text style={[styles.footer, styles.toggleText]}>¿No tienes cuenta? Crear cuenta</Text>
           </Pressable>
           <Text style={styles.footer}>Personas que necesitan ayuda.{'\n'}Personas que saben ayudar.</Text>

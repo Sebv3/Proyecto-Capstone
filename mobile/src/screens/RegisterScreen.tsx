@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable,
@@ -11,6 +12,7 @@ import { type Commune, getCommunes, register, registerErrorMessage } from '../ap
 import { registerSchema, type RegisterValues } from '../auth/registerSchema';
 import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+import { blurFocusedElementOnWeb } from '../navigation/webFocus';
 
 const identityFields = [
   { name: 'nombre', label: 'Nombre y apellidos', placeholder: 'Tu nombre completo' },
@@ -82,7 +84,7 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
   const [communesError, setCommunesError] = useState<string | null>(null);
   const submitting = useRef(false);
   const {
-    control, handleSubmit, reset,
+    control, handleSubmit, reset, setFocus,
     formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -91,6 +93,12 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
       direccion: '', comuna_id: '', rol: role,
     },
   });
+
+  useFocusEffect(useCallback(() => {
+    if (Platform.OS !== 'web' || success) return;
+    const frame = requestAnimationFrame(() => setFocus('nombre'));
+    return () => cancelAnimationFrame(frame);
+  }, [setFocus, success]));
 
   useEffect(() => {
     let active = true;
@@ -132,7 +140,10 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
                 : 'Ya puedes iniciar sesión con tu correo y contraseña.'}
             </Text>
             {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-            <Pressable accessibilityRole="button" style={styles.button} onPress={() => navigation.popTo('Login')}>
+            <Pressable accessibilityRole="button" style={styles.button} onPress={() => {
+              blurFocusedElementOnWeb();
+              navigation.popTo('Login');
+            }}>
               <Text style={styles.buttonText}>{success.confirmation ? 'Ya confirmé, iniciar sesión' : 'Ir a iniciar sesión'}</Text>
             </Pressable>
           </View> : <View style={styles.card}>
@@ -213,10 +224,16 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
                 <Text style={styles.buttonText}>{isSubmitting ? 'Creando cuenta…' : role === 'TRABAJADOR' ? 'Crear cuenta y continuar' : 'Crear cuenta'}</Text>
               </Pressable>
             </>
-            <Pressable accessibilityRole="button" disabled={isSubmitting} style={styles.link} onPress={() => navigation.goBack()}>
+            <Pressable accessibilityRole="button" disabled={isSubmitting} style={styles.link} onPress={() => {
+              blurFocusedElementOnWeb();
+              navigation.goBack();
+            }}>
               <Text style={styles.linkText}>Cambiar tipo de perfil</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" disabled={isSubmitting} style={styles.link} onPress={() => navigation.popTo('Login')}>
+            <Pressable accessibilityRole="button" disabled={isSubmitting} style={styles.link} onPress={() => {
+              blurFocusedElementOnWeb();
+              navigation.popTo('Login');
+            }}>
               <Text style={styles.linkText}>Ya tengo cuenta. Iniciar sesión</Text>
             </Pressable>
           </View>}

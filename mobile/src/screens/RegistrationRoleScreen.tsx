@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+import { blurFocusedElementOnWeb } from '../navigation/webFocus';
 
 const roleOptions = [
   { value: 'CLIENTE', label: 'Cliente', description: 'Quiero contratar servicios' },
@@ -9,6 +10,11 @@ const roleOptions = [
 ] as const;
 
 export function RegistrationRoleScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'RegistrationRole'>) {
+  const openRegistration = (role: 'CLIENTE' | 'TRABAJADOR') => {
+    blurFocusedElementOnWeb();
+    navigation.navigate('Register', { role });
+  };
+
   return (
     <SafeAreaView style={styles.page}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -23,7 +29,7 @@ export function RegistrationRoleScreen({ navigation }: NativeStackScreenProps<Ro
                 key={option.value}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: false }}
-                onPress={() => navigation.navigate('Register', { role: option.value })}
+                onPress={() => openRegistration(option.value)}
                 style={({ pressed }) => [styles.roleOption, pressed && styles.pressed]}
               >
                 <View style={styles.roleCopy}>
@@ -35,7 +41,10 @@ export function RegistrationRoleScreen({ navigation }: NativeStackScreenProps<Ro
             ))}
           </View>
 
-          <Pressable accessibilityRole="button" style={styles.link} onPress={() => navigation.goBack()}>
+          <Pressable accessibilityRole="button" style={styles.link} onPress={() => {
+            blurFocusedElementOnWeb();
+            navigation.goBack();
+          }}>
             <Text style={styles.linkText}>Ya tengo cuenta. Iniciar sesión</Text>
           </Pressable>
         </View>
