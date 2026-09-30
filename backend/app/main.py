@@ -3,8 +3,13 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.admin_verifications import router as admin_verifications_router
+from app.routers.admin_worker_role_requests import (
+    router as admin_worker_role_requests_router,
+)
 from app.routers.auth import router as auth_router
 from app.routers.client_profiles import router as client_profiles_router
+from app.routers.worker_role_requests import router as worker_role_requests_router
 from app.routers.worker_verification import router as worker_verification_router
 from app.schemas.health import HealthResponse
 
@@ -29,8 +34,11 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(admin_worker_role_requests_router)
+app.include_router(admin_verifications_router)
 app.include_router(client_profiles_router)
 app.include_router(worker_verification_router)
+app.include_router(worker_role_requests_router)
 
 
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["Sistema"])

@@ -18,6 +18,7 @@ const identityFields = [
   { name: 'nombre', label: 'Nombre y apellidos', placeholder: 'Tu nombre completo' },
   { name: 'email', label: 'Correo electrónico', placeholder: 'tu@correo.cl' },
   { name: 'rut', label: 'RUT', placeholder: '12.345.678-5' },
+  { name: 'telefono', label: 'Teléfono', placeholder: '+56912345678' },
 ] as const;
 
 const passwordFields = [
@@ -89,7 +90,7 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      nombre: '', email: '', rut: '', password: '', confirmPassword: '',
+      nombre: '', email: '', rut: '', telefono: '', password: '', confirmPassword: '',
       direccion: '', comuna_id: '', rol: role,
     },
   });
@@ -164,8 +165,8 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
                       accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#77847E"
                       style={[styles.input, errors[name] && styles.invalid]} editable={!isSubmitting}
                       autoCapitalize={name === 'nombre' ? 'words' : 'none'} autoCorrect={false}
-                      keyboardType={name === 'email' ? 'email-address' : 'default'}
-                      autoComplete={name === 'email' ? 'email' : name === 'nombre' ? 'name' : 'off'} />
+                      keyboardType={name === 'email' ? 'email-address' : name === 'telefono' ? 'phone-pad' : 'default'}
+                      autoComplete={name === 'email' ? 'email' : name === 'nombre' ? 'name' : name === 'telefono' ? 'tel' : 'off'} />
                   )} />
                   {errors[name] && <Text accessibilityRole="alert" style={styles.error}>{errors[name]?.message}</Text>}
                 </View>

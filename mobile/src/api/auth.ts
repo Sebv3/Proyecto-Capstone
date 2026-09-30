@@ -4,6 +4,7 @@ export type User = {
   id: string;
   nombre: string;
   email: string;
+  telefono: string | null;
   rol: 'CLIENTE' | 'TRABAJADOR' | 'ADMIN';
   activo: boolean;
 };
@@ -27,7 +28,7 @@ const api = axios.create({
 });
 
 export type RegisterInput = {
-  nombre: string; email: string; rut: string; password: string;
+  nombre: string; email: string; rut: string; telefono: string; password: string;
   rol: 'CLIENTE' | 'TRABAJADOR';
   direccion?: string;
   comuna_id?: string;
@@ -50,13 +51,13 @@ export async function getCommunes(): Promise<Commune[]> {
 
 export async function register(input: RegisterInput): Promise<RegisterResult> {
   if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
-  const { nombre, email, rut, password, rol, direccion, comuna_id } = input;
+  const { nombre, email, rut, telefono, password, rol, direccion, comuna_id } = input;
   const profile = { direccion, comuna_id };
   const { data } = await api.post<{
     user_id: string; email_confirmation_required: boolean;
     session: Omit<AuthSession, 'expires_at'> | null;
   }>('/auth/register', {
-    nombre, email, rut, password, rol, ...profile,
+    nombre, email, rut, telefono, password, rol, ...profile,
   });
   if (!data.user_id || typeof data.email_confirmation_required !== 'boolean') {
     throw new Error('No se pudo comprobar el registro. Intenta iniciar sesión antes de repetirlo.');

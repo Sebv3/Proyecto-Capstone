@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 from app.schemas.client_profile import Address
-from app.schemas.user import ChileanRut, User, UserName
+from app.schemas.user import ChileanRut, PhoneNumber, User, UserName
 
 Email = Annotated[
     str,
@@ -23,6 +23,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=8)
     nombre: UserName
     rut: ChileanRut
+    telefono: PhoneNumber
     rol: Literal["CLIENTE", "TRABAJADOR"]
     direccion: Address | None = None
     comuna_id: UUID | None = None

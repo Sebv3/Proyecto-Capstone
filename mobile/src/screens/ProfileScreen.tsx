@@ -13,7 +13,12 @@ import {
   deactivateClientAccount, getClientProfile, isMissingClientProfile, updateClientProfile,
 } from '../api/clientProfile';
 import { useAuth } from '../auth/AuthContext';
+import {
+  getWorkerRoleRequest, isMissingWorkerRoleRequest,
+  type WorkerRoleRequest, workerRoleRequestErrorMessage,
+} from '../api/workerRoleRequest';
 import { WorkerProfileSection } from './WorkerProfileSection';
+import { WorkerRoleDocumentsScreen } from './WorkerRoleDocumentsScreen';
 
 const profileSchema = z.object({
   nombre: z.string().trim().min(2, 'Ingresa al menos dos caracteres.').max(120),
@@ -75,6 +80,11 @@ export function ProfileScreen({
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [deactivationError, setDeactivationError] = useState<string | null>(null);
+  const [roleRequest, setRoleRequest] = useState<WorkerRoleRequest | null>(null);
+  const [roleRequestLoading, setRoleRequestLoading] = useState(false);
+  const [roleRequestError, setRoleRequestError] = useState<string | null>(null);
+  const [showRoleDocuments, setShowRoleDocuments] = useState(false);
+  const [roleRequestReloadKey, setRoleRequestReloadKey] = useState(0);
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: { nombre: '', telefono: '', direccion: '', comuna_id: '' },
@@ -112,6 +122,22 @@ export function ProfileScreen({
   useEffect(() => {
     if (user?.rol === 'CLIENTE') void loadCommunes();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.rol !== 'CLIENTE') return;
+    let active = true;
+    setRoleRequestLoading(true);
+    setRoleRequestError(null);
+    void withAccessToken(getWorkerRoleRequest)
+      .then((result) => { if (active) setRoleRequest(result); })
+      .catch((reason) => {
+        if (!active) return;
+        if (isMissingWorkerRoleRequest(reason)) setRoleRequest(null);
+        else setRoleRequestError(workerRoleRequestErrorMessage(reason));
+      })
+      .finally(() => { if (active) setRoleRequestLoading(false); });
+    return () => { active = false; };
+  }, [user?.id, user?.rol, roleRequestReloadKey]);
 
   function startEditing() {
     if (!profile) return;
@@ -160,6 +186,16 @@ export function ProfileScreen({
   }
 
   if (!user) return null;
+  if (user.rol === 'CLIENTE' && showRoleDocuments) {
+    return <WorkerRoleDocumentsScreen
+      onCancel={() => setShowRoleDocuments(false)}
+      onSubmitted={(request) => {
+        setRoleRequest(request);
+        setRoleRequestError(null);
+        setShowRoleDocuments(false);
+      }}
+    />;
+  }
   const roles = { CLIENTE: 'Cliente', TRABAJADOR: 'Trabajador', ADMIN: 'Administrador' };
   const showForm = user.rol === 'CLIENTE' && (missing || editing);
   return <SafeAreaView style={styles.page}>
@@ -253,6 +289,39 @@ export function ProfileScreen({
 
         {user.rol === 'TRABAJADOR' && <WorkerProfileSection onProfileCreated={onWorkerProfileCreated} />}
 
+        {user.rol === 'CLIENTE' && <View style={styles.roleRequestCard}>
+          <Text style={styles.sectionTitle}>¿Quieres ofrecer tus servicios?</Text>
+          <Text style={styles.sectionHint}>
+            Solicita convertir tu cuenta en un perfil de trabajador. Mantendrás tu acceso de cliente mientras revisamos la solicitud.
+          </Text>
+
+          {roleRequestLoading && <View style={styles.loading}>
+            <ActivityIndicator color="#256047" />
+            <Text style={styles.hint}>Consultando solicitud…</Text>
+          </View>}
+          {roleRequestError && <Text accessibilityRole="alert" style={styles.error}>{roleRequestError}</Text>}
+
+          {!roleRequestLoading && roleRequest && <View style={styles.requestStatus}>
+            <Text style={styles.groupLabel}>ESTADO DE LA SOLICITUD</Text>
+            <Text style={styles.requestStatusText}>{roleRequest.estado === 'PENDIENTE'
+              ? 'Solicitud pendiente'
+              : roleRequest.estado === 'APROBADA' ? 'Solicitud aprobada' : 'Solicitud rechazada'}</Text>
+            {roleRequest.motivo_rechazo && <Text style={styles.sectionHint}>{roleRequest.motivo_rechazo}</Text>}
+          </View>}
+
+          {!roleRequestLoading && (!roleRequest || roleRequest.estado === 'RECHAZADA') &&
+            <Pressable accessibilityRole="button" onPress={() => setShowRoleDocuments(true)}
+              style={styles.primaryButton}>
+              <Text style={styles.primaryText}>{roleRequest
+                ? 'Volver a enviar documentos' : 'Solicitar rol trabajador'}</Text>
+            </Pressable>}
+
+          {!roleRequestLoading && roleRequestError && <Pressable accessibilityRole="button"
+            onPress={() => setRoleRequestReloadKey((value) => value + 1)} style={styles.textButton}>
+            <Text style={styles.link}>Reintentar</Text>
+          </Pressable>}
+        </View>}
+
         <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.signOut}>
           <Text style={styles.link}>Cerrar sesión</Text>
         </Pressable>
@@ -316,6 +385,10 @@ const styles = StyleSheet.create({
   dangerTitle: { color: '#8E261C', fontSize: 16, fontWeight: '700' },
   dangerLink: { color: '#B42318', fontSize: 14, fontWeight: '700' },
   confirmBox: { marginTop: 12, padding: 16, backgroundColor: '#FFF0EE', borderRadius: 10 },
+  roleRequestCard: { marginTop: 18, padding: 20, backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1, borderColor: '#DCE6E1' },
+  requestStatus: { marginTop: 18, padding: 14, borderRadius: 10, backgroundColor: '#E7F3EC' },
+  requestStatusText: { color: '#256047', fontSize: 16, fontWeight: '700', marginTop: 5 },
+  requestConfirmBox: { marginTop: 16, padding: 16, backgroundColor: '#F5F7F6', borderRadius: 10 },
   dangerButton: { marginTop: 16, minHeight: 48, borderRadius: 10, backgroundColor: '#B42318', alignItems: 'center', justifyContent: 'center' },
   modalHeader: { padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#DCE6E1' },
   communeList: { padding: 16 },

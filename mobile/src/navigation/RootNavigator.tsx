@@ -16,7 +16,7 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { RegistrationRoleScreen } from '../screens/RegistrationRoleScreen';
 import { SessionLoadingScreen } from '../screens/SessionLoadingScreen';
 import { WorkerDocumentsScreen } from '../screens/WorkerDocumentsScreen';
-import { WorkerHomeScreen } from '../screens/WorkerHomeScreen';
+import { ClientMainTabs, WorkerMainTabs } from './MainTabNavigators';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -24,7 +24,8 @@ export type RootStackParamList = {
   Register: { role: 'CLIENTE' | 'TRABAJADOR' };
   Profile: undefined;
   WorkerDocuments: undefined;
-  WorkerHome: undefined;
+  WorkerMain: undefined;
+  ClientMain: undefined;
   EmailConfirmed: undefined;
 };
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -126,18 +127,14 @@ export function RootNavigator() {
         <Stack.Screen name="WorkerDocuments">
           {() => <WorkerDocumentsScreen verification={flow.verification} onSubmitted={refresh} />}
         </Stack.Screen>
-      : user.rol === 'TRABAJADOR' && flow.verification ? <>
-        <Stack.Screen name="WorkerHome">
-          {({ navigation }) => <WorkerHomeScreen verification={flow.verification!}
-            onProfile={() => navigation.navigate('Profile')} onRefresh={refresh} />}
+      : user.rol === 'TRABAJADOR' && flow.verification ?
+        <Stack.Screen name="WorkerMain">
+          {() => <WorkerMainTabs verification={flow.verification!} onRefresh={refresh} />}
         </Stack.Screen>
-        <Stack.Screen name="Profile">
-          {({ navigation }) => <ProfileScreen onBack={() => navigation.goBack()} />}
-        </Stack.Screen>
-      </> : <Stack.Screen name="Profile" component={ProfileScreen} />}
+      : <Stack.Screen name="ClientMain" component={ClientMainTabs} />}
       <Stack.Screen name="EmailConfirmed">
         {({ navigation }) => <EmailConfirmedScreen onContinue={() => {
-          navigation.navigate(user ? 'Profile' : 'Login');
+          navigation.popToTop();
         }} />}
       </Stack.Screen>
     </Stack.Navigator>

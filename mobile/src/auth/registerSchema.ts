@@ -17,6 +17,10 @@ export const registerSchema = z.object({
   nombre: z.string().trim().min(2, 'Ingresa al menos dos caracteres.').max(120, 'Máximo 120 caracteres.'),
   email: z.string().trim().email('Ingresa un correo válido.').max(320),
   rut: z.string().transform(normalizeRut).refine(validRut, 'Revisa el RUT y su dígito verificador.'),
+  telefono: z.string().trim().regex(
+    /^[+]?[0-9 ]{8,15}$/,
+    'Ingresa un teléfono válido de entre 8 y 15 caracteres.',
+  ),
   password: z.string().min(8, 'Usa al menos ocho caracteres.'),
   confirmPassword: z.string().min(1, 'Repite tu contraseña.'),
   rol: z.enum(['CLIENTE', 'TRABAJADOR'], { error: 'Selecciona Cliente o Trabajador.' }),

@@ -53,6 +53,7 @@ def _register_body(role: str = "CLIENTE") -> dict[str, str]:
         "password": "secret123",
         "nombre": "Persona Prueba",
         "rut": "12345678-5",
+        "telefono": "+56912345678",
         "rol": role,
     }
     if role == "CLIENTE":
@@ -90,6 +91,7 @@ def test_register_sends_profile_metadata_and_handles_email_confirmation(
             "data": {
                 "nombre": "Persona Prueba",
                 "rut": "12345678-5",
+                "telefono": "+56912345678",
                 "rol": "CLIENTE",
                 "direccion": "Avenida Siempre Viva 123",
                 "comuna_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
@@ -171,6 +173,17 @@ def test_register_rejects_invalid_rut_before_supabase(make_client, rut) -> None:
     response = make_client(unexpected).post("/api/v1/auth/register", json=body)
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "rut"]
+
+
+@pytest.mark.parametrize("telefono", ["123", "+56-9-1234-5678", "abcdefgh"])
+def test_register_rejects_invalid_phone_before_supabase(make_client, telefono) -> None:
+    def unexpected(_: httpx.Request) -> httpx.Response:
+        pytest.fail("An invalid phone must not reach Supabase")
+
+    body = {**_register_body(), "telefono": telefono}
+    response = make_client(unexpected).post("/api/v1/auth/register", json=body)
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "telefono"]
 
 
 @pytest.mark.parametrize(

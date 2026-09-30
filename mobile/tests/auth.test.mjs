@@ -13,6 +13,10 @@ const {
   clientProfileErrorMessage, createClientProfile, deactivateClientAccount,
   getClientProfile, isMissingClientProfile, updateClientProfile,
 } = await import('../src/api/clientProfile.ts');
+const {
+  createWorkerRoleRequest, getWorkerRoleRequest, isMissingWorkerRoleRequest,
+  workerRoleRequestErrorMessage,
+} = await import('../src/api/workerRoleRequest.ts');
 const { clearStoredSession, readStoredSession, saveSession } = await import('../src/auth/sessionStorage.web.ts');
 const { requestWithSession } = await import('../src/auth/requestWithSession.ts');
 const user = { id: 'user-1', nombre: 'Ana', email: 'ana@example.com', rol: 'CLIENTE', activo: true };
@@ -23,6 +27,7 @@ const response = (config, data) => ({ config, data, status: 200, statusText: 'OK
 
 const registration = {
   nombre: ' Ana ', email: 'ana@example.com', rut: '12.345.678-5',
+  telefono: ' +56912345678 ',
   password: 'test-only', confirmPassword: 'test-only', rol: 'CLIENTE',
   direccion: ' Avenida Siempre Viva 123 ',
   comuna_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
@@ -55,6 +60,7 @@ test('registration rejects invalid RUT, missing role, admin, and mismatched pass
     { rut: '12.345.678-0' }, { rol: undefined }, { rol: 'ADMIN' },
     { confirmPassword: 'different' }, { password: 'short', confirmPassword: 'short' },
     { email: 'invalid' }, { nombre: ' ' },
+    { telefono: '123' }, { telefono: '+56-9-1234-5678' },
     { direccion: '' }, { comuna_id: '' },
   ]) assert.equal(registerSchema.safeParse({ ...registration, ...change }).success, false);
 });
@@ -85,7 +91,8 @@ test('registration sends only API fields and handles email confirmation on or of
     handler = async (config) => {
       assert.equal(config.url, '/auth/register');
       assert.deepEqual(JSON.parse(config.data), {
-        nombre: 'Ana', email: 'ana@example.com', rut: '12345678-5', password: 'test-only', rol: 'CLIENTE',
+        nombre: 'Ana', email: 'ana@example.com', rut: '12345678-5', telefono: '+56912345678',
+        password: 'test-only', rol: 'CLIENTE',
         direccion: 'Avenida Siempre Viva 123',
         comuna_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       });
@@ -113,6 +120,7 @@ test('worker registration sends its base address and returns a usable session', 
     assert.equal(config.url, '/auth/register');
     assert.deepEqual(JSON.parse(config.data), {
       nombre: 'Ana', email: 'ana@example.com', rut: '12345678-5',
+      telefono: '+56912345678',
       password: 'test-only', rol: 'TRABAJADOR', direccion: 'Calle del Trabajo 123',
       comuna_id: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
     });
@@ -256,6 +264,40 @@ test('client profile create, edit, and deactivate use the current token', async 
   assert.deepEqual(calls.map((call) => call.method), ['post', 'patch', 'delete']);
   assert.deepEqual(calls[0].data, { direccion: profile.direccion, comuna_id: profile.comuna.id });
   assert.equal(calls[1].data.telefono, null);
+});
+
+test('client can create and retrieve a worker role request', async () => {
+  const request = {
+    id: 'request-1', usuario_id: 'user-1', estado: 'PENDIENTE', motivo_rechazo: null,
+    creado_en: '2026-09-29T12:00:00Z', actualizado_en: '2026-09-29T12:00:00Z',
+  };
+  handler = async (config) => {
+    assert.equal(config.url, '/solicitudes/rol-trabajador');
+    assert.equal(config.headers.Authorization, 'Bearer test-token');
+    if (config.method === 'post') {
+      assert.ok(config.data instanceof FormData);
+      assert.ok(config.data.get('carnet_frontal'));
+      assert.ok(config.data.get('carnet_reverso'));
+      assert.ok(config.data.get('selfie'));
+    }
+    return response(config, request);
+  };
+  const image = { uri: 'test.jpg', mimeType: 'image/jpeg', file: new Blob(['image']) };
+  assert.deepEqual(await createWorkerRoleRequest('test-token', {
+    carnet_frontal: image, carnet_reverso: image, selfie: image,
+  }), request);
+  assert.deepEqual(await getWorkerRoleRequest('test-token'), request);
+});
+
+test('worker role request errors distinguish missing and duplicate requests', () => {
+  const missing = new axios.AxiosError('Not found', undefined, undefined, undefined, {
+    status: 404, data: {}, statusText: '', headers: {}, config: {},
+  });
+  const duplicate = new axios.AxiosError('Conflict', undefined, undefined, undefined, {
+    status: 409, data: {}, statusText: '', headers: {}, config: {},
+  });
+  assert.equal(isMissingWorkerRoleRequest(missing), true);
+  assert.match(workerRoleRequestErrorMessage(duplicate), /solicitud pendiente/);
 });
 
 test('protected requests refresh an expiring session before sending data', async () => {

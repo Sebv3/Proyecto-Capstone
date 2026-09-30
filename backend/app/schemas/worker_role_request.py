@@ -1,36 +1,22 @@
 from datetime import datetime
-from typing import Annotated, Literal, Self
+from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, StringConstraints, field_validator, model_validator
-
-from app.schemas.client_profile import CommuneResponse
-
-Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=200)]
+from pydantic import BaseModel, field_validator, model_validator
 
 
-class WorkerProfileAddress(BaseModel):
-    direccion_base: Address
-    comuna_id: UUID
-
-
-class WorkerProfileResponse(BaseModel):
+class WorkerRoleRequestResponse(BaseModel):
+    id: UUID
     usuario_id: UUID
-    direccion_base: str
-    comuna: CommuneResponse | None
-    creado_en: datetime
-    actualizado_en: datetime
-
-
-class VerificationResponse(BaseModel):
-    trabajador_id: UUID
-    estado: str
+    estado: Literal["PENDIENTE", "APROBADA", "RECHAZADA"]
     motivo_rechazo: str | None
+    revisado_por: UUID | None = None
+    revisado_en: datetime | None = None
     creado_en: datetime
     actualizado_en: datetime
 
 
-class VerificationReviewRequest(BaseModel):
+class WorkerRoleReviewRequest(BaseModel):
     estado: Literal["APROBADA", "RECHAZADA"]
     motivo_rechazo: str | None = None
 
