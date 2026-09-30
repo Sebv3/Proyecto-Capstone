@@ -134,7 +134,7 @@ export function RootNavigator() {
       : <Stack.Screen name="ClientMain" component={ClientMainTabs} />}
       <Stack.Screen name="EmailConfirmed">
         {({ navigation }) => <EmailConfirmedScreen onContinue={() => {
-          navigation.popToTop();
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         }} />}
       </Stack.Screen>
     </Stack.Navigator>
