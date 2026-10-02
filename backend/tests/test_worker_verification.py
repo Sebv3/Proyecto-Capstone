@@ -103,8 +103,10 @@ def test_worker_creates_address_before_verification(make_client):
 
 def test_worker_edits_address(make_client):
     updated = {**WORKER, "direccion_base": "Nueva Calle 456"}
+    worker_gets = 0
 
     def handler(request: httpx.Request):
+        nonlocal worker_gets
         response = authenticated(request)
         if response is not None:
             return response
@@ -113,14 +115,19 @@ def test_worker_edits_address(make_client):
         if request.url.path == "/rest/v1/verificaciones_trabajador":
             return httpx.Response(200, json=[VERIFICATION])
         if request.url.path == "/rest/v1/trabajadores" and request.method == "GET":
-            return httpx.Response(200, json=[WORKER])
+            worker_gets += 1
+            return httpx.Response(200, json=[WORKER if worker_gets == 1 else updated])
         assert request.url.path == "/rest/v1/trabajadores"
         assert request.method == "PATCH"
         assert request.url.params["usuario_id"] == f"eq.{USER_ID}"
         assert json.loads(request.content) == {
             "direccion_base": "Nueva Calle 456", "comuna_id": COMMUNE_ID,
         }
-        return httpx.Response(200, json=[updated])
+        return httpx.Response(200, json=[{
+            "usuario_id": USER_ID,
+            "direccion_base": "Nueva Calle 456",
+            "comuna_id": COMMUNE_ID,
+        }])
 
     response = make_client(handler).patch(
         "/api/v1/perfiles/trabajador",
@@ -129,6 +136,8 @@ def test_worker_edits_address(make_client):
     )
     assert response.status_code == 200
     assert response.json()["direccion_base"] == "Nueva Calle 456"
+    assert response.json()["comuna"]["nombre"] == "Santiago"
+    assert worker_gets == 2
 
 
 def test_worker_cannot_edit_address_before_document_submission(make_client):
@@ -150,17 +159,25 @@ def test_worker_cannot_edit_address_before_document_submission(make_client):
 
 def test_legacy_worker_can_add_commune_before_documents(make_client):
     completed = {**WORKER, "comuna": {"id": COMMUNE_ID, "nombre": "Santiago"}}
+    worker_gets = 0
 
     def handler(request: httpx.Request):
+        nonlocal worker_gets
         response = authenticated(request)
         if response is not None:
             return response
         if request.url.path == "/rest/v1/trabajadores":
             if request.method == "GET":
-                return httpx.Response(200, json=[{**WORKER, "comuna": None}])
+                worker_gets += 1
+                profile = {**WORKER, "comuna": None} if worker_gets == 1 else completed
+                return httpx.Response(200, json=[profile])
             assert request.method == "PATCH"
             assert json.loads(request.content)["comuna_id"] == COMMUNE_ID
-            return httpx.Response(200, json=[completed])
+            return httpx.Response(200, json=[{
+                "usuario_id": USER_ID,
+                "direccion_base": "Calle Principal 123",
+                "comuna_id": COMMUNE_ID,
+            }])
         if request.url.path == "/rest/v1/comunas":
             return httpx.Response(200, json=[{"id": COMMUNE_ID}])
         pytest.fail("Legacy completion should not require a verification")
@@ -171,6 +188,7 @@ def test_legacy_worker_can_add_commune_before_documents(make_client):
     )
     assert response.status_code == 200
     assert response.json()["comuna"]["id"] == COMMUNE_ID
+    assert worker_gets == 2
 
 
 def test_worker_profile_rejects_inactive_commune(make_client):

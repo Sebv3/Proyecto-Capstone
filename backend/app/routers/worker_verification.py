@@ -150,7 +150,7 @@ async def update_worker_profile(
     rows = response.json()
     if not rows:
         raise HTTPException(status_code=404, detail="Perfil trabajador no encontrado")
-    return WorkerProfileResponse.model_validate(rows[0])
+    return await _get_worker(user, gateway, token)
 
 
 @router.get("/verificaciones/trabajador", response_model=VerificationResponse)
