@@ -56,4 +56,56 @@ values
 on conflict (nombre) do update
 set activa = true;
 
--- Los datos iniciales de categorías se agregarán junto con la migración de servicios.
+-- Initial service categories. The migration also inserts them so linked
+-- environments receive the same catalog through `supabase db push`.
+insert into public.categorias (
+    slug, nombre, descripcion, requiere_certificacion,
+    certificacion_requerida, orden
+)
+values
+    ('instalaciones-electricas', 'Instalaciones y reparaciones eléctricas',
+     'Instalación y reparación eléctrica domiciliaria de baja tensión.', true,
+     'Licencia de Instalador Eléctrico SEC Clase D', 1),
+    ('gasfiteria-gas', 'Gasfitería domiciliaria y artefactos a gas',
+     'Mantención de artefactos y redes interiores de gas domiciliarias.', true,
+     'Licencia de Instalador de Gas SEC Clase 3', 2),
+    ('climatizacion', 'Climatización básica',
+     'Instalación y mantención de climatización para viviendas y oficinas pequeñas.', true,
+     'Certificación ChileValora en climatización o Licencia SEC Clase D', 3),
+    ('seguridad-electronica', 'Seguridad electrónica e intrusión',
+     'Instalación de cámaras, videoporteros, alarmas y accesos electrónicos.', true,
+     'Acreditación OS10 o certificación del fabricante', 4),
+    ('cerrajeria', 'Cerrajería',
+     'Apertura de puertas, cambio de combinaciones, chapas y copias de llaves.', false,
+     null, 5),
+    ('calzado-vestuario', 'Calzado y vestuario',
+     'Limpieza y reparación de calzado, ajustes y confección básica de ropa.', false,
+     null, 6),
+    ('carpinteria-muebleria', 'Carpintería y mueblería',
+     'Reparación de puertas, bisagras, sillas, mesas y muebles de madera.', false,
+     null, 7),
+    ('pintura-terminaciones', 'Pintura y terminaciones',
+     'Pintura interior y exterior, pasta muro y fijación de elementos.', false,
+     null, 8),
+    ('jardineria-paisajismo', 'Jardinería y paisajismo',
+     'Corte de césped, poda, riego y limpieza de terrenos.', false,
+     null, 9),
+    ('aseo-limpieza', 'Aseo y limpieza profunda',
+     'Limpieza de viviendas, vehículos, alfombras y tapices.', false,
+     null, 10),
+    ('cuidado-mascotas', 'Cuidado y paseo de mascotas',
+     'Paseo y cuidado temporal de mascotas.', false,
+     null, 11),
+    ('gasfiteria-sanitaria', 'Gasfitería e instalaciones sanitarias',
+     'Instalación y reparación de redes de agua, sanitarios, grifería y desagües.', false,
+     null, 12),
+    ('bicicletas', 'Mantención y armado de bicicletas',
+     'Armado, ajuste, lubricación y reparación básica de bicicletas.', false,
+     null, 13)
+on conflict (slug) do update
+set nombre = excluded.nombre,
+    descripcion = excluded.descripcion,
+    requiere_certificacion = excluded.requiere_certificacion,
+    certificacion_requerida = excluded.certificacion_requerida,
+    activa = true,
+    orden = excluded.orden;

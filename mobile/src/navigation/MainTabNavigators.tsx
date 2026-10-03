@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
 import type { WorkerVerification } from '../api/workerVerification';
+import { ClientHomeScreen } from '../screens/ClientHomeScreen';
 import { ComingSoonScreen } from '../screens/ComingSoonScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { WorkerHomeScreen } from '../screens/WorkerHomeScreen';
@@ -53,7 +54,7 @@ export function ClientMainTabs() {
     <ClientTab.Screen name="ClientHome" options={{
       title: 'Inicio', tabBarIcon: tabIcon('home', 'home-outline'),
     }}>
-      {() => <ComingSoonScreen title="Inicio" />}
+      {({ navigation }) => <ClientHomeScreen onSearch={() => navigation.navigate('ClientSearch')} />}
     </ClientTab.Screen>
     <ClientTab.Screen name="ClientSearch" options={{
       title: 'Buscar', tabBarIcon: tabIcon('search', 'search-outline'),
