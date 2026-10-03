@@ -66,7 +66,7 @@ function CommunePicker({
 export function ProfileScreen({
   onWorkerProfileCreated, onBack,
 }: { onWorkerProfileCreated?: () => void; onBack?: () => void }) {
-  const { user, withAccessToken, updateUser, signOut } = useAuth();
+  const { user, withAccessToken, refreshUser, updateUser, signOut } = useAuth();
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -128,8 +128,10 @@ export function ProfileScreen({
     let active = true;
     setRoleRequestLoading(true);
     setRoleRequestError(null);
-    void withAccessToken(getWorkerRoleRequest)
-      .then((result) => { if (active) setRoleRequest(result); })
+    void refreshUser()
+      .then((currentUser) => currentUser.rol === 'CLIENTE'
+        ? withAccessToken(getWorkerRoleRequest) : null)
+      .then((result) => { if (active && result) setRoleRequest(result); })
       .catch((reason) => {
         if (!active) return;
         if (isMissingWorkerRoleRequest(reason)) setRoleRequest(null);
@@ -307,6 +309,10 @@ export function ProfileScreen({
               ? 'Solicitud pendiente'
               : roleRequest.estado === 'APROBADA' ? 'Solicitud aprobada' : 'Solicitud rechazada'}</Text>
             {roleRequest.motivo_rechazo && <Text style={styles.sectionHint}>{roleRequest.motivo_rechazo}</Text>}
+            {roleRequest.estado === 'PENDIENTE' && <Pressable accessibilityRole="button"
+              onPress={() => setRoleRequestReloadKey((value) => value + 1)} style={styles.textButton}>
+              <Text style={styles.link}>Actualizar estado</Text>
+            </Pressable>}
           </View>}
 
           {!roleRequestLoading && (!roleRequest || roleRequest.estado === 'RECHAZADA') &&

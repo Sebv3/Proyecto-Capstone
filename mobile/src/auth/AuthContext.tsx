@@ -19,6 +19,7 @@ type AuthState = {
   startSession: (session: AuthSession) => Promise<void>;
   signOut: () => Promise<void>;
   withAccessToken: <T>(request: (token: string) => Promise<T>) => Promise<T>;
+  refreshUser: () => Promise<User>;
   updateUser: (changes: Pick<User, 'nombre'>) => void;
 };
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -142,22 +143,36 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return requestWithSession(sessionRef.current, renewSession, request);
   }
 
+  async function refreshUser(): Promise<User> {
+    const version = authVersion.current;
+    const currentUser = await withAccessToken(getCurrentUser);
+    if (version !== authVersion.current) throw new Error('La sesión cambió.');
+    setUser(currentUser);
+    return currentUser;
+  }
+
   useEffect(() => {
     if (!session) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
-    const check = async () => {
+    const check = async (syncUser = false) => {
       if (!active || !sessionRef.current) return;
-      if (sessionRef.current.expires_at > Date.now() + REFRESH_MARGIN_MS) return;
       try {
-        await renewSession();
+        if (sessionRef.current.expires_at <= Date.now() + REFRESH_MARGIN_MS) {
+          await renewSession();
+        } else if (syncUser) {
+          await refreshUser();
+        }
       } catch {
-        if (active && sessionRef.current) timer = setTimeout(() => void check(), 30_000);
+        if (active && sessionRef.current
+          && sessionRef.current.expires_at <= Date.now() + REFRESH_MARGIN_MS) {
+          timer = setTimeout(() => void check(), 30_000);
+        }
       }
     };
     timer = setTimeout(() => void check(), Math.max(0, session.expires_at - Date.now() - REFRESH_MARGIN_MS));
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void check();
+      if (state === 'active') void check(true);
     });
     return () => { active = false; clearTimeout(timer); subscription.remove(); };
   }, [session]);
@@ -167,7 +182,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isRestoringSession, signIn, startSession, signOut, withAccessToken, updateUser }}>
+    <AuthContext.Provider value={{ user, isRestoringSession, signIn, startSession, signOut, withAccessToken, refreshUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

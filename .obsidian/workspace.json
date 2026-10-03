@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "DEVELOPMENT.md",
+                "file": "Planificación Sprints.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "DEVELOPMENT"
+              "title": "Planificación Sprints"
             }
           }
         ]
@@ -191,6 +191,8 @@
   "active": "2741c36943f893ca",
   "lastOpenFiles": [
     "CONTEXT.md",
+    "Planificación Sprints.md",
+    "DEVELOPMENT.md",
     "README.md",
     "MVP.md",
     "supabase/seed.sql",
@@ -198,7 +200,6 @@
     "supabase/README.md",
     "supabase",
     "backend/pyproject.toml",
-    "DEVELOPMENT.md",
     "docker-compose.yml",
     "backend/README.md",
     "backend/tests/test_health.py",
@@ -225,7 +226,6 @@
     "mobile/node_modules/log-symbols/node_modules/supports-color/readme.md",
     "mobile/node_modules/log-symbols/node_modules/has-flag/readme.md",
     "mobile/node_modules/jsesc/README.md",
-    "mobile/node_modules/jsc-safe-url/README.md",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/layers-filled.svg",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/large-arrow-right-filled.svg",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/label.svg",
