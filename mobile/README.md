@@ -35,11 +35,81 @@ pantalla no permite editar la dirección ni la comuna. Las imágenes deben ser J
 de hasta 5 MiB cada una. Una vez enviadas, entra al Home limitado con estado
 `PENDIENTE` y puede editar dirección y comuna desde **Mi perfil**. Si vuelve a ser
 rechazado, regresa al paso documental con el motivo. Con `APROBADA` entra al
-Home aprobado. Todavía no existen las funciones de publicar o aceptar trabajos;
-cuando se creen deberán comprobar `APROBADA` también en el backend. La revisión
+Home aprobado. Puede publicar servicios desde el formulario descrito abajo;
+la aceptación de trabajos todavía está pendiente. La revisión
 se realiza manualmente en Supabase; no hay controles de administrador en la app.
 Las cuentas antiguas sin comuna vuelven a **Mi perfil** para elegirla antes de
 entrar al paso documental; la app no deduce la comuna del texto de la dirección.
+
+## Publicar servicio — SCRUM-40
+
+Desde el Inicio del trabajador, **Publicar servicio** abre un formulario con
+categoría, nombre (3–120 caracteres), descripción (10–1000 caracteres), precio
+base en CLP enteros, duración estimada en minutos enteros y modalidad (domicilio
+o taller), ubicación pública seleccionada en el mapa y cobertura de 1–100 km
+para domicilio. El texto de dirección no se geocodifica: se confirma un punto.
+Las categorías se consultan en `/categorias` y la publicación se envía
+a `POST /trabajador/servicios` con el token de la sesión actual.
+
+El botón requiere identidad aprobada, carga correcta de los servicios y menos de
+cinco publicaciones activas. El formulario vuelve a comprobar esas condiciones;
+la base de datos también las aplica al guardar, incluso ante cambios concurrentes.
+Después de publicar, se vuelve al Inicio, se muestra una confirmación y se recargan
+los servicios y el contador. Los errores conservan los campos para corregirlos o
+reintentar. Editar y desactivar servicios todavía no tiene interfaz en la app.
+
+Las categorías que requieren certificación exigen una aprobación administrativa
+para esa categoría antes de publicar. Los documentos pendientes o rechazados no
+habilitan publicaciones; las categorías sin ese requisito mantienen su flujo habitual.
+
+Verificación automatizada: `npm run typecheck` y `npm run test:services`.
+En un dispositivo, probar ambos tipos de modalidad, campos inválidos, identidad
+pendiente, cinco servicios activos, pérdida de conexión y retorno al Inicio tras
+publicar. Esta última comprobación crea un servicio real; usar una cuenta de prueba.
+
+## Buscar y consultar servicios — SCRUM-39
+
+La pestaña **Buscar** permite consultar el catálogo por texto (nombre o descripción),
+categoría, modalidad y precio base mínimo/máximo en CLP. Los filtros se aplican
+con **Buscar** o **Aplicar filtros**; **Limpiar** vuelve al catálogo completo.
+Se cargan 20 resultados por página y **Cargar más** agrega la siguiente página.
+Las búsquedas abandonadas se cancelan para evitar que respuestas antiguas
+reemplacen resultados nuevos. Hay mensajes para errores y búsquedas sin resultados.
+
+Desde Inicio, una categoría abre Buscar con ese filtro y un servicio destacado
+abre su detalle. El detalle también se abre desde los resultados e incluye
+descripción, categoría, precio base, duración estimada, modalidad, trabajador y
+comuna. Volver desde el detalle conserva los filtros y resultados de búsqueda.
+El detalle se vuelve a consultar al abrirse; si el servicio se desactivó, muestra
+que ya no está disponible. Se utiliza la API de catálogo existente, sin nuevas tablas.
+
+Todavía no hay contratación, disponibilidad, distancia ni calificaciones.
+Los documentos de certificación son privados y solo una aprobación administrativa
+habilita publicar en las categorías correspondientes.
+
+## Certificaciones del trabajador
+
+**Subir certificaciones** en Inicio abre la selección de categorías que requieren
+certificación. Se indica el nombre del certificado o licencia y se adjunta un PDF,
+JPEG, PNG o WebP de hasta 5 MiB. Se muestra el estado y, en caso de rechazo, el
+motivo y un formulario para reenviar un archivo nuevo. No se reemplazan documentos
+pendientes o aprobados. **Actualizar estado** vuelve a consultar la revisión.
+
+El formulario de publicación comprueba la aprobación de la categoría y permite
+abrir la pantalla de certificaciones desde allí. Al regresar actualiza el estado.
+La base de datos también aplica la regla en altas, reactivaciones, cambios de
+categoría y ediciones de servicios activos. El catálogo oculta ofertas antiguas
+de categorías obligatorias sin certificación aprobada; siguen visibles al propietario.
+
+Requiere aplicar `20261005120000_worker_certifications.sql` tras revisión del equipo.
+Antes de aplicarla, la carga muestra que el módulo no está disponible y las
+categorías obligatorias permanecen bloqueadas en el formulario.
+Pruebas: `npm run test:certifications`. Reiniciar Expo después de instalar la nueva
+dependencia `expo-document-picker` con `npm ci`.
+
+Pruebas: `npm run test:catalog`. En dispositivo, comprobar categorías desde Inicio,
+detalle desde destacados y resultados, retorno a los filtros, carga de más de 20
+resultados, lista vacía, errores de conexión y un servicio desactivado.
 
 ## Ejecutar
 
@@ -87,3 +157,52 @@ En el dispositivo, comprobar:
 
 Las pruebas HTTP usan respuestas simuladas; el recorrido real debe comprobarse
 con una cuenta propia sin compartir contraseñas ni tokens.
+# SCRUM-41: mapa de cobertura del cliente
+
+La pestaña Mapa usa Leaflet 1.9.4 en `react-native-webview` (incluido en Expo Go
+SDK 57). Web usa un iframe con sandbox. No se requiere una compilación nativa
+personalizada ni claves de Google Maps. `expo-location` permite obtener un punto
+una sola vez, únicamente cuando se toca el botón correspondiente. No hay seguimiento
+en segundo plano; se puede elegir el punto manualmente sin permisos.
+
+Aplicar las migraciones previas y `20261005180000_service_locations.sql`.
+Los servicios nuevos guardan su ubicación desde Publicar servicio y aparecen en
+el mapa automáticamente, tanto DOMICILIO como TALLER. Se mantienen aprobación,
+cuenta/categoría activa y certificación cuando corresponde. No se copia la
+dirección base privada: el trabajador elige información que será pública.
+Para ofertas anteriores, ver `supabase/set_service_location.sql`.
+
+La tarjeta del marcador abre el detalle del servicio. Verde indica domicilio,
+azul taller y los círculos muestran el radio declarado de domicilio. El cliente
+puede filtrar modalidad y elegir su ubicación o usar GPS para ordenar por cercanía,
+ver la distancia en línea recta y si entra en el radio de cobertura declarado.
+Esa comparación no calcula rutas ni garantiza disponibilidad para contratar.
+El punto del cliente se mantiene en memoria en esa pantalla; no se envía al backend.
+Se utiliza el proveedor de mapas al visualizar esa zona en el selector.
+Hay lista accesible, carga, estado vacío, reintentos y actualización al volver.
+Las capas raster vienen de `tile.openstreetmap.org`, con atribución visible,
+caché normal y sin precarga ni descarga offline. Uso previsto: pruebas/demostración
+de bajo tráfico sujeto a https://operations.osmfoundation.org/policies/tiles/.
+Leaflet se descarga del CDN unpkg con versión fija y comprobación de integridad;
+se necesita conexión a Internet. Para producción evaluar un proveedor adecuado.
+
+El HTML solo recibe nombres públicos, IDs y coordenadas; nunca tokens. En web el
+iframe conserva el origen de la página para enviar el Referer requerido por OSM;
+el contenido controlado y Leaflet con integridad comprobada son código de confianza.
+El sandbox bloquea formularios, ventanas emergentes y navegación de la página principal.
+Los textos
+se insertan con `textContent`, el JSON se escapa, se valida el puente de mensajes,
+se bloquea navegación y la CSP restringe los recursos. La WebView agrega
+`ServiMatch/1.0` al User-Agent y usa el origen Supabase configurado como base URL.
+
+Verificar en Expo Go: publicar un servicio en cada modalidad con su punto;
+abrir Mapa, filtrar modalidad, seleccionar marcador y Ver servicio. Usar Mi
+ubicación y comprobar distancia/cobertura; denegar permiso y elegir un punto
+manualmente. Comprobar también lista, mapa sin conexión y ausencia de ofertas.
+La compilación web y las pruebas automatizadas no sustituyen esa prueba en equipo.
+
+Prueba visual aislada (sin Supabase ni registros reales):
+`node --experimental-strip-types tests/coverage-preview.mjs`, abrir
+`http://127.0.0.1:8093`. Comprobar capas, atribución, selección de ambas modalidades
+y la elección manual de un punto;
+detener el proceso con Ctrl+C al terminar.

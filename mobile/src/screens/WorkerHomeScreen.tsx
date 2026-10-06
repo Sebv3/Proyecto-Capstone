@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getOwnServices, WorkerService, workerServicesErrorMessage } from '../api/workerServices';
 import type { WorkerVerification } from '../api/workerVerification';
 import { useAuth } from '../auth/AuthContext';
-import { HomeCatalogSections } from './HomeCatalogSections';
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('es-CL', {
@@ -14,27 +14,37 @@ function formatPrice(price: number): string {
 }
 
 export function WorkerHomeScreen({
-  verification, onProfile, onRefresh,
-}: { verification: WorkerVerification; onProfile: () => void; onRefresh: () => void }) {
-  const { user, signOut, withAccessToken } = useAuth();
+  verification, onRefresh, onPublish, onCertifications, publishedServiceName, onDismissSuccess,
+}: {
+  verification: WorkerVerification; onRefresh: () => void; onPublish: () => void;
+  onCertifications: () => void;
+  publishedServiceName?: string; onDismissSuccess: () => void;
+}) {
+  const { user, withAccessToken } = useAuth();
+  const request = useRef(withAccessToken);
+  request.current = withAccessToken;
   const [services, setServices] = useState<WorkerService[]>([]);
   const [servicesError, setServicesError] = useState('');
+  const [loadingServices, setLoadingServices] = useState(true);
   const approved = verification.estado === 'APROBADA';
 
   const loadServices = useCallback(async () => {
+    setLoadingServices(true);
     setServicesError('');
     try {
-      setServices(await withAccessToken(getOwnServices));
+      setServices(await request.current(getOwnServices));
     } catch (error) {
       setServicesError(workerServicesErrorMessage(error));
+    } finally {
+      setLoadingServices(false);
     }
-  }, [withAccessToken]);
+  }, []);
 
-  useEffect(() => { void loadServices(); }, [loadServices]);
+  useFocusEffect(useCallback(() => { void loadServices(); }, [loadServices]));
 
   const activeServices = services.filter((service) => service.activo).length;
   const remainingServices = Math.max(0, 5 - activeServices);
-  const comingSoon = () => Alert.alert('Próximamente', 'Esta función estará disponible en un siguiente Scrum.');
+  const canPublish = approved && !loadingServices && !servicesError && activeServices < 5;
 
   return <SafeAreaView style={styles.page}>
     <ScrollView contentContainerStyle={styles.content}>
@@ -49,9 +59,19 @@ export function WorkerHomeScreen({
         </View>
       </View>
 
+      {!!publishedServiceName && <View style={styles.successCard}>
+        <View style={styles.verificationBody}>
+          <Text accessibilityLiveRegion="polite" style={styles.infoTitle}>Servicio publicado</Text>
+          <Text style={styles.hint}>{publishedServiceName} ya está disponible en el catálogo.</Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar confirmación" onPress={onDismissSuccess} style={styles.dismiss}>
+          <Ionicons name="close" size={22} color="#256047" />
+        </Pressable>
+      </View>}
+
       <View style={styles.summaryCard}>
         <Text style={styles.summaryLabel}>Tus publicaciones</Text>
-        <Text style={styles.summaryValue}>{activeServices} servicios activos</Text>
+        <Text style={styles.summaryValue}>{loadingServices ? 'Cargando…' : `${activeServices} servicios activos`}</Text>
         <Text style={styles.summaryHint}>Puedes mantener hasta 5 servicios activos.</Text>
         <View style={styles.progressTrack}>
           <View style={[styles.progressActive, { flex: activeServices }]} />
@@ -75,24 +95,27 @@ export function WorkerHomeScreen({
       </View>}
 
       <View style={styles.actions}>
-        <Pressable accessibilityRole="button" onPress={comingSoon} style={styles.primaryAction}>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canPublish }} disabled={!canPublish}
+          onPress={onPublish} style={[styles.primaryAction, !canPublish && styles.disabledAction]}>
           <Ionicons name="add" size={26} color="#FFFFFF" />
           <View>
             <Text style={styles.primaryActionText}>Publicar servicio</Text>
-            <Text style={styles.primaryActionSoon}>Próximamente</Text>
+            <Text style={styles.primaryActionSoon}>{!approved ? 'Requiere identidad aprobada'
+              : loadingServices ? 'Comprobando servicios…' : servicesError ? 'Reintenta cargar tus servicios'
+                : activeServices >= 5 ? 'Límite de 5 servicios alcanzado' : 'Crea una nueva publicación'}</Text>
           </View>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={comingSoon} style={styles.secondaryAction}>
-          <Ionicons name="document-text-outline" size={23} color="#14251F" />
-          <Text style={styles.secondaryActionText}>Solicitudes</Text>
-          <Text style={styles.secondaryActionSoon}>Próximamente</Text>
+        <Pressable accessibilityRole="button" onPress={onCertifications} style={styles.secondaryAction}>
+          <Ionicons name="ribbon-outline" size={23} color="#14251F" />
+          <Text style={styles.secondaryActionText}>Subir certificaciones</Text>
+          <Text style={styles.secondaryActionSoon}>Documentos y estado</Text>
         </Pressable>
       </View>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionLabel}>TUS SERVICIOS RECIENTES</Text>
       </View>
-      {servicesError
+      {loadingServices ? <View style={styles.infoCard}><Text style={styles.hint}>Cargando tus servicios…</Text></View> : servicesError
         ? <View style={styles.infoCard}>
           <Text style={styles.errorText}>{servicesError}</Text>
           <Pressable onPress={() => void loadServices()}><Text style={styles.link}>Reintentar</Text></Pressable>
@@ -100,7 +123,7 @@ export function WorkerHomeScreen({
         : services.length === 0
           ? <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Aún no tienes servicios</Text>
-            <Text style={styles.hint}>La publicación desde la aplicación estará disponible próximamente.</Text>
+            <Text style={styles.hint}>{approved ? 'Publica tu primer servicio para que los clientes puedan encontrarlo.' : 'Podrás publicar cuando tu identidad esté aprobada.'}</Text>
           </View>
           : services.slice(0, 3).map((service) => <View key={service.id} style={styles.serviceCard}>
             <View style={styles.serviceIcon}>
@@ -130,19 +153,14 @@ export function WorkerHomeScreen({
         </View>
       </View>
 
-      <HomeCatalogSections onExplore={comingSoon} />
-
-      <Pressable accessibilityRole="button" onPress={onProfile} style={styles.profileButton}>
-        <Text style={styles.profileButtonText}>Mi perfil</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.signOut}>
-        <Text style={styles.link}>Cerrar sesión</Text>
-      </Pressable>
     </ScrollView>
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
+  successCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, marginBottom: 14, backgroundColor: '#DDF2E9', borderRadius: 14 },
+  dismiss: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  disabledAction: { opacity: 0.5 },
   page: { flex: 1, backgroundColor: '#F5F7F6' },
   content: { padding: 16, paddingBottom: 42, width: '100%', maxWidth: 680, alignSelf: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
@@ -187,7 +205,4 @@ const styles = StyleSheet.create({
   activeText: { color: '#087A57', fontSize: 10, fontWeight: '800' },
   inactiveText: { color: '#66756F', fontSize: 10, fontWeight: '800' },
   comingCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#DCE6E1' },
-  profileButton: { marginTop: 26, minHeight: 52, borderRadius: 10, backgroundColor: '#256047', alignItems: 'center', justifyContent: 'center' },
-  profileButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  signOut: { minHeight: 52, alignItems: 'center', justifyContent: 'center', marginTop: 16, borderWidth: 1, borderColor: '#C9D6CF', borderRadius: 10 },
 });

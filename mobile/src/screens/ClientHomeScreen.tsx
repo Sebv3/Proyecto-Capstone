@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { HomeCatalogSections } from './HomeCatalogSections';
@@ -11,7 +11,9 @@ function greeting(): string {
   return '¡Buenas noches!';
 }
 
-export function ClientHomeScreen({ onSearch }: { onSearch: () => void }) {
+export function ClientHomeScreen({ onSearch, onCategory, onService }: {
+  onSearch: () => void; onCategory: (id: string) => void; onService: (id: string) => void;
+}) {
   const { user } = useAuth();
   return <SafeAreaView style={styles.page}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -26,14 +28,7 @@ export function ClientHomeScreen({ onSearch }: { onSearch: () => void }) {
         </View>
       </View>
 
-      <Pressable accessibilityRole="button" onPress={onSearch} style={styles.searchRow}>
-        <Text style={styles.searchPlaceholder}>Buscar servicio (ej. destape)</Text>
-        <View style={styles.searchButton}>
-          <Ionicons name="search" size={25} color="#FFFFFF" />
-        </View>
-      </Pressable>
-
-      <HomeCatalogSections onExplore={onSearch} />
+      <HomeCatalogSections onExplore={onSearch} onCategory={onCategory} onService={onService} />
     </ScrollView>
   </SafeAreaView>;
 }
@@ -46,7 +41,4 @@ const styles = StyleSheet.create({
   title: { color: '#14251F', fontSize: 22, fontWeight: '900', marginTop: 2 },
   notification: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE6E1', alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', top: 7, right: 8, width: 7, height: 7, borderRadius: 4, backgroundColor: '#E33E3E' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  searchPlaceholder: { flex: 1, minHeight: 52, paddingHorizontal: 16, textAlignVertical: 'center', color: '#77847F', fontSize: 14, backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#DCE6E1' },
-  searchButton: { width: 58, height: 52, borderRadius: 14, backgroundColor: '#087A57', alignItems: 'center', justifyContent: 'center' },
 });

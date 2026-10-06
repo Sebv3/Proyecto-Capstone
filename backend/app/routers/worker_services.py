@@ -2,6 +2,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import ValidationError
 
 from app.core.security import AuthGateway, BearerToken, get_current_user
 from app.schemas.catalog import ServiceCreate, ServiceResponse, ServiceUpdate
@@ -11,7 +12,8 @@ router = APIRouter(prefix="/api/v1/trabajador/servicios", tags=["Servicios traba
 CurrentUser = Annotated[User, Depends(get_current_user)]
 SERVICE_FIELDS = (
     "id,trabajador_id,categoria_id,nombre,descripcion,precio_base,"
-    "duracion_estimada_minutos,modalidad,activo,creado_en,actualizado_en"
+    "duracion_estimada_minutos,modalidad,activo,creado_en,actualizado_en,"
+    "ubicacion_publica,latitud,longitud,radio_cobertura_km"
 )
 
 
@@ -38,6 +40,10 @@ def _database_error(response: Any, fallback: str) -> None:
     except (AttributeError, TypeError, ValueError):
         message = ""
     lowered = message.lower()
+    if "certificacion aprobada" in lowered:
+        raise HTTPException(
+            status_code=403, detail="La categoría requiere una certificación aprobada"
+        )
     if "maximo cinco" in lowered:
         raise HTTPException(status_code=409, detail="Ya tienes cinco servicios activos")
     if "verificacion aprobada" in lowered:
@@ -150,7 +156,26 @@ async def update_own_service(
     gateway: AuthGateway,
 ) -> ServiceResponse:
     token = _worker_token(user, credentials)
-    await _read_service(servicio_id, user, gateway, token)
+    existing = await _read_service(servicio_id, user, gateway, token)
+    location_fields = {
+        "modalidad",
+        "ubicacion_publica",
+        "latitud",
+        "longitud",
+        "radio_cobertura_km",
+    }
+    if body.model_fields_set & location_fields:
+        try:
+            ServiceCreate.model_validate(
+                {
+                    **existing.model_dump(),
+                    **body.model_dump(exclude_unset=True),
+                }
+            )
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422, detail="Revisa la ubicación y la cobertura"
+            ) from exc
     response = await gateway.request(
         "PATCH",
         "/rest/v1/servicios",

@@ -10,6 +10,9 @@ from app.routers.admin_worker_role_requests import (
 from app.routers.auth import router as auth_router
 from app.routers.catalog import router as catalog_router
 from app.routers.client_profiles import router as client_profiles_router
+from app.routers.locations import router as locations_router
+from app.routers.locations import service_map_router
+from app.routers.worker_certifications import router as worker_certifications_router
 from app.routers.worker_role_requests import router as worker_role_requests_router
 from app.routers.worker_services import router as worker_services_router
 from app.routers.worker_verification import router as worker_verification_router
@@ -37,12 +40,15 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(catalog_router)
+app.include_router(locations_router)
+app.include_router(service_map_router)
 app.include_router(admin_worker_role_requests_router)
 app.include_router(admin_verifications_router)
 app.include_router(client_profiles_router)
 app.include_router(worker_verification_router)
 app.include_router(worker_role_requests_router)
 app.include_router(worker_services_router)
+app.include_router(worker_certifications_router)
 
 
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["Sistema"])

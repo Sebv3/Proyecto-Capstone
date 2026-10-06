@@ -5,6 +5,38 @@ del repositorio. La documentación interactiva queda disponible en
 `http://localhost:8000/docs` y el endpoint de salud en
 `http://localhost:8000/api/v1/health`.
 
+## Certificaciones profesionales
+
+La migración `20261005120000_worker_certifications.sql` crea
+`certificaciones_trabajador` y el bucket privado `certificaciones-trabajador`.
+Debe revisarse con el equipo antes de aplicarla al Supabase compartido.
+
+- `GET /api/v1/trabajador/certificaciones`: estado de los documentos del trabajador.
+- `POST /api/v1/trabajador/certificaciones`: multipart con `categoria_id`, `nombre`
+  y `documento` (PDF, JPEG, PNG o WebP de hasta 5 MiB). Envía o reenvía tras rechazo.
+- `GET /api/v1/admin/certificaciones`: lista de pendientes con una sesión ADMIN activa.
+- `GET /api/v1/admin/certificaciones/{id}/documento`: enlace privado firmado por 60 segundos.
+- `PATCH /api/v1/admin/certificaciones/{id}`: `estado` APROBADA o RECHAZADA y
+  `motivo_rechazo` obligatorio al rechazar. Se revisa una sola vez cada envío.
+
+El trabajador nunca puede elegir su estado ni el administrador revisor. La revisión
+se hace con los endpoints administrativos en `/docs`: autorizar con el token de
+un ADMIN activo, listar pendientes, abrir el documento firmado, comprobar que
+corresponde al trabajador y al requisito de la categoría, y aprobar o rechazar.
+Los endpoints del trabajador no devuelven rutas de archivos ni enlaces públicos.
+
+Publicar, reactivar, cambiar de categoría o editar un servicio activo exige una
+certificación aprobada para su categoría cuando esta la requiere, además de
+identidad aprobada y un máximo de cinco servicios activos. Desactivar sigue permitido.
+El catálogo y sus políticas ocultan ofertas sin la aprobación requerida, incluidas
+las anteriores a la migración. No se aprueba ni se desactiva automáticamente ninguna
+certificación u oferta preexistente.
+
+Pruebas HTTP: `pytest tests/test_worker_certifications.py tests/test_worker_services.py`.
+Las pruebas SQL en `supabase/tests` utilizan un esquema mínimo en PostgreSQL
+temporal; no sustituyen la comprobación del recorrido completo en Supabase después
+de que el equipo revise y aplique la migración.
+
 ## Pruebas
 
 Con el contenedor en ejecución:
@@ -127,3 +159,23 @@ antes de que el perfil se creara automáticamente durante el registro.
 La migración `20260925210000_update_client_profile_atomically.sql` debe aplicarse
 antes de usar el nuevo `PATCH`: concentra los cambios de `usuarios` y `clientes`
 en una sola transacción. No modifiques migraciones anteriores ya aplicadas.
+# SCRUM-41: locales públicos
+
+`GET /api/v1/locales` lista establecimientos visibles y sus servicios TALLER;
+`GET /api/v1/locales/{uuid}` obtiene uno o devuelve 404 si dejó de estar disponible.
+Ambos consumen `consultar_locales_catalogo` sin exponer RUT, correo, documentos ni
+dirección base privada. El RPC aplica aprobación del trabajador, cuenta activa,
+categoría activa y certificación específica. Migración faltante: 503. No hay
+endpoints de escritura de locales; el alta se realiza mediante SQL en este sprint.
+
+La pantalla Mapa ahora consume `GET /api/v1/mapa/servicios`, a partir de la
+migración `20261005180000_service_locations.sql`. La ubicación pertenece a cada
+oferta DOMICILIO o TALLER, con la misma elegibilidad del catálogo. Los endpoints
+anteriores de locales siguen disponibles para compatibilidad, pero no alimentan
+esta pantalla. La nueva publicación requiere `ubicacion_publica`, `latitud`,
+`longitud` y un `radio_cobertura_km` entero de 1–100 para DOMICILIO (null en TALLER).
+El PATCH comprueba la ubicación y modalidad efectivas antes de guardar cambios
+en esos campos. Las ofertas anteriores pueden desactivarse sin ubicación; no
+aparecen en el mapa hasta completar su punto. El catálogo y detalle incluyen
+ubicación pública y radio. Nunca se reciben coordenadas del cliente para calcular
+proximidad: esa comparación se hace en el móvil.

@@ -34,6 +34,10 @@ SERVICE = {
     "precio_base": 25000,
     "duracion_estimada_minutos": 60,
     "modalidad": "DOMICILIO",
+    "ubicacion_publica": "Sector Plaza Central",
+    "latitud": -33.45,
+    "longitud": -70.66,
+    "radio_cobertura_km": 5,
     "activo": True,
     "creado_en": "2026-10-02T12:00:00Z",
     "actualizado_en": "2026-10-02T12:00:00Z",
@@ -76,9 +80,7 @@ def test_lists_own_active_and_inactive_services(make_client) -> None:
         assert request.url.params["order"] == "creado_en.desc"
         return httpx.Response(200, json=[SERVICE, {**SERVICE, "activo": False}])
 
-    response = make_client(handler).get(
-        "/api/v1/trabajador/servicios", headers=TOKEN_HEADERS
-    )
+    response = make_client(handler).get("/api/v1/trabajador/servicios", headers=TOKEN_HEADERS)
     assert response.status_code == 200
     assert [item["activo"] for item in response.json()] == [True, False]
 
@@ -98,6 +100,10 @@ def test_creates_own_service(make_client) -> None:
             "precio_base": 25000,
             "duracion_estimada_minutos": 60,
             "modalidad": "DOMICILIO",
+            "ubicacion_publica": "Sector Plaza Central",
+            "latitud": -33.45,
+            "longitud": -70.66,
+            "radio_cobertura_km": 5,
         }
         assert request.headers["Prefer"] == "return=representation"
         return httpx.Response(201, json=[SERVICE])
@@ -112,6 +118,10 @@ def test_creates_own_service(make_client) -> None:
             "precio_base": 25000,
             "duracion_estimada_minutos": 60,
             "modalidad": "DOMICILIO",
+            "ubicacion_publica": "Sector Plaza Central",
+            "latitud": -33.45,
+            "longitud": -70.66,
+            "radio_cobertura_km": 5,
         },
     )
     assert response.status_code == 201
@@ -163,9 +173,51 @@ def test_delete_soft_deactivates_service(make_client) -> None:
     assert response.status_code == 204
 
 
+def test_switch_to_workshop_accepts_null_radius_and_preserves_point(make_client):
+    def handler(request):
+        authenticated = _authenticate(request)
+        if authenticated is not None:
+            return authenticated
+        if request.method == "GET":
+            return httpx.Response(200, json=[SERVICE])
+        assert json.loads(request.content) == {"modalidad": "TALLER", "radio_cobertura_km": None}
+        return httpx.Response(
+            200, json=[{**SERVICE, "modalidad": "TALLER", "radio_cobertura_km": None}]
+        )
+
+    response = make_client(handler).patch(
+        f"/api/v1/trabajador/servicios/{SERVICE_ID}",
+        headers=TOKEN_HEADERS,
+        json={"modalidad": "TALLER", "radio_cobertura_km": None},
+    )
+    assert response.status_code == 200
+    assert response.json()["latitud"] == SERVICE["latitud"]
+
+
+def test_home_service_cannot_clear_its_radius(make_client):
+    def handler(request):
+        authenticated = _authenticate(request)
+        if authenticated is not None:
+            return authenticated
+        assert request.method == "GET"
+        return httpx.Response(200, json=[SERVICE])
+
+    response = make_client(handler).patch(
+        f"/api/v1/trabajador/servicios/{SERVICE_ID}",
+        headers=TOKEN_HEADERS,
+        json={"radio_cobertura_km": None},
+    )
+    assert response.status_code == 422
+
+
 @pytest.mark.parametrize(
     ("message", "expected_status", "expected_detail"),
     [
+        (
+            "La categoria requiere una certificacion aprobada",
+            403,
+            "La categoría requiere una certificación aprobada",
+        ),
         (
             "Un trabajador puede tener como maximo cinco servicios activos",
             409,
@@ -202,6 +254,10 @@ def test_create_translates_database_rules(
             "precio_base": 25000,
             "duracion_estimada_minutos": 60,
             "modalidad": "DOMICILIO",
+            "ubicacion_publica": "Sector Plaza Central",
+            "latitud": -33.45,
+            "longitud": -70.66,
+            "radio_cobertura_km": 5,
         },
     )
     assert response.status_code == expected_status
@@ -217,9 +273,7 @@ def test_client_cannot_manage_worker_services(make_client) -> None:
             return authenticated
         pytest.fail("Un cliente no debe consultar servicios privados de trabajador")
 
-    response = make_client(handler).get(
-        "/api/v1/trabajador/servicios", headers=TOKEN_HEADERS
-    )
+    response = make_client(handler).get("/api/v1/trabajador/servicios", headers=TOKEN_HEADERS)
     assert response.status_code == 403
 
 

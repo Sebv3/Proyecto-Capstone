@@ -51,6 +51,10 @@ def _service_from_row(row: dict[str, Any]) -> CatalogServiceResponse:
                 },
                 "creado_en": row["creado_en"],
                 "actualizado_en": row["actualizado_en"],
+                "ubicacion_publica": row.get("ubicacion_publica"),
+                "latitud": row.get("latitud"),
+                "longitud": row.get("longitud"),
+                "radio_cobertura_km": row.get("radio_cobertura_km"),
             }
         )
     except (KeyError, TypeError, ValueError) as exc:

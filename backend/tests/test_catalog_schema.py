@@ -8,6 +8,38 @@ from app.schemas.catalog import ServiceCreate, ServiceModality, ServiceUpdate
 CATEGORY_ID = UUID("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")
 
 
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"ubicacion_publica": ""},
+        {"latitud": None},
+        {"longitud": None},
+        {"latitud": 91},
+        {"longitud": -181},
+        {"latitud": float("inf")},
+        {"radio_cobertura_km": None},
+        {"radio_cobertura_km": 0},
+        {"radio_cobertura_km": 101},
+        {"modalidad": "TALLER", "radio_cobertura_km": 5},
+    ],
+)
+def test_location_and_modality_coverage_are_validated(change):
+    values = {
+        "categoria_id": CATEGORY_ID,
+        "nombre": "Reparacion",
+        "descripcion": "Reparacion completa",
+        "precio_base": 20000,
+        "duracion_estimada_minutos": 60,
+        "modalidad": "DOMICILIO",
+        "ubicacion_publica": "Sector Plaza Central",
+        "latitud": -33.45,
+        "longitud": -70.66,
+        "radio_cobertura_km": 5,
+    }
+    with pytest.raises(ValidationError):
+        ServiceCreate.model_validate({**values, **change})
+
+
 def test_service_create_normalizes_text_and_accepts_modalities() -> None:
     for modality in ServiceModality:
         service = ServiceCreate(
@@ -17,6 +49,10 @@ def test_service_create_normalizes_text_and_accepts_modalities() -> None:
             precio_base=25000,
             duracion_estimada_minutos=90,
             modalidad=modality,
+            ubicacion_publica=" Sector Plaza Central ",
+            latitud=-33.45,
+            longitud=-70.66,
+            radio_cobertura_km=5 if modality == ServiceModality.DOMICILIO else None,
         )
         assert service.nombre == "Instalación de enchufes"
         assert service.descripcion.startswith("Instalación domiciliaria")
@@ -41,6 +77,10 @@ def test_service_create_rejects_invalid_values(field: str, value: object) -> Non
         "precio_base": 30000,
         "duracion_estimada_minutos": 120,
         "modalidad": "DOMICILIO",
+        "ubicacion_publica": "Sector Plaza Central",
+        "latitud": -33.45,
+        "longitud": -70.66,
+        "radio_cobertura_km": 5,
     }
     data[field] = value
     with pytest.raises(ValidationError):
@@ -63,6 +103,9 @@ def test_service_update_requires_at_least_one_field() -> None:
         "duracion_estimada_minutos",
         "modalidad",
         "activo",
+        "ubicacion_publica",
+        "latitud",
+        "longitud",
     ],
 )
 def test_service_update_rejects_explicit_null(field: str) -> None:

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
 import type { WorkerVerification } from '../api/workerVerification';
@@ -7,6 +8,11 @@ import { ClientHomeScreen } from '../screens/ClientHomeScreen';
 import { ComingSoonScreen } from '../screens/ComingSoonScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { WorkerHomeScreen } from '../screens/WorkerHomeScreen';
+import { PublishServiceScreen } from '../screens/PublishServiceScreen';
+import { ServiceSearchScreen } from '../screens/ServiceSearchScreen';
+import { ServiceDetailScreen } from '../screens/ServiceDetailScreen';
+import { WorkerCertificationsScreen } from '../screens/WorkerCertificationsScreen';
+import { ClientMapScreen } from '../screens/ClientMapScreen';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -41,7 +47,7 @@ const commonScreenOptions = {
 
 type ClientTabParamList = {
   ClientHome: undefined;
-  ClientSearch: undefined;
+  ClientSearch: { categoryId?: string; requestKey: number } | undefined;
   ClientMap: undefined;
   ClientRequests: undefined;
   ClientProfile: undefined;
@@ -49,22 +55,73 @@ type ClientTabParamList = {
 
 const ClientTab = createBottomTabNavigator<ClientTabParamList>();
 
+type ClientHomeStackParamList = {
+  ClientDashboard: undefined;
+  ServiceDetail: { serviceId: string };
+};
+type ClientSearchStackParamList = {
+  ServiceSearch: undefined;
+  ServiceDetail: { serviceId: string };
+};
+const ClientHomeStack = createNativeStackNavigator<ClientHomeStackParamList>();
+const ClientSearchStack = createNativeStackNavigator<ClientSearchStackParamList>();
+type ClientMapStackParamList = {
+  CoverageMap: undefined;
+  ServiceDetail: { serviceId: string };
+};
+const ClientMapStack = createNativeStackNavigator<ClientMapStackParamList>();
+
+function ClientMapNavigator() {
+  return <ClientMapStack.Navigator screenOptions={{ headerShown: false }}>
+    <ClientMapStack.Screen name="CoverageMap">
+      {({ navigation }) => <ClientMapScreen onService={(serviceId) => navigation.navigate('ServiceDetail', { serviceId })} />}
+    </ClientMapStack.Screen>
+    <ClientMapStack.Screen name="ServiceDetail">
+      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
+    </ClientMapStack.Screen>
+  </ClientMapStack.Navigator>;
+}
+
+function ClientHomeNavigator({ onSearch }: { onSearch: (categoryId?: string) => void }) {
+  return <ClientHomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <ClientHomeStack.Screen name="ClientDashboard">
+      {({ navigation }) => <ClientHomeScreen onSearch={() => onSearch()} onCategory={onSearch}
+        onService={(serviceId) => navigation.navigate('ServiceDetail', { serviceId })} />}
+    </ClientHomeStack.Screen>
+    <ClientHomeStack.Screen name="ServiceDetail">
+      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
+    </ClientHomeStack.Screen>
+  </ClientHomeStack.Navigator>;
+}
+
+function ClientSearchNavigator({ initialCategoryId }: { initialCategoryId?: string }) {
+  return <ClientSearchStack.Navigator screenOptions={{ headerShown: false }}>
+    <ClientSearchStack.Screen name="ServiceSearch">
+      {({ navigation }) => <ServiceSearchScreen initialCategoryId={initialCategoryId}
+        onService={(serviceId) => navigation.navigate('ServiceDetail', { serviceId })} />}
+    </ClientSearchStack.Screen>
+    <ClientSearchStack.Screen name="ServiceDetail">
+      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
+    </ClientSearchStack.Screen>
+  </ClientSearchStack.Navigator>;
+}
+
 export function ClientMainTabs() {
   return <ClientTab.Navigator initialRouteName="ClientHome" screenOptions={commonScreenOptions}>
     <ClientTab.Screen name="ClientHome" options={{
       title: 'Inicio', tabBarIcon: tabIcon('home', 'home-outline'),
     }}>
-      {({ navigation }) => <ClientHomeScreen onSearch={() => navigation.navigate('ClientSearch')} />}
+      {({ navigation }) => <ClientHomeNavigator onSearch={(categoryId) => navigation.navigate('ClientSearch', { categoryId, requestKey: Date.now() })} />}
     </ClientTab.Screen>
     <ClientTab.Screen name="ClientSearch" options={{
       title: 'Buscar', tabBarIcon: tabIcon('search', 'search-outline'),
     }}>
-      {() => <ComingSoonScreen title="Buscar" />}
+      {({ route }) => <ClientSearchNavigator key={route.params?.requestKey ?? 'default'} initialCategoryId={route.params?.categoryId} />}
     </ClientTab.Screen>
     <ClientTab.Screen name="ClientMap" options={{
       title: 'Mapa', tabBarIcon: tabIcon('map', 'map-outline'),
     }}>
-      {() => <ComingSoonScreen title="Mapa" />}
+      {() => <ClientMapNavigator />}
     </ClientTab.Screen>
     <ClientTab.Screen name="ClientRequests" options={{
       title: 'Solicitudes', tabBarIcon: tabIcon('list', 'list-outline'),
@@ -87,6 +144,29 @@ type WorkerTabParamList = {
 
 const WorkerTab = createBottomTabNavigator<WorkerTabParamList>();
 
+export type WorkerHomeStackParamList = {
+  WorkerDashboard: { publishedServiceName?: string } | undefined;
+  PublishService: undefined;
+  WorkerCertifications: { categoryId?: string } | undefined;
+};
+const WorkerHomeStack = createNativeStackNavigator<WorkerHomeStackParamList>();
+
+function WorkerHomeNavigator({ verification, onRefresh }: {
+  verification: WorkerVerification; onRefresh: () => void;
+}) {
+  return <WorkerHomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <WorkerHomeStack.Screen name="WorkerDashboard">
+      {({ navigation, route }) => <WorkerHomeScreen verification={verification} onRefresh={onRefresh}
+        onPublish={() => navigation.navigate('PublishService')}
+        onCertifications={() => navigation.navigate('WorkerCertifications')}
+        publishedServiceName={route.params?.publishedServiceName}
+        onDismissSuccess={() => navigation.setParams({ publishedServiceName: undefined })} />}
+    </WorkerHomeStack.Screen>
+    <WorkerHomeStack.Screen name="PublishService" component={PublishServiceScreen} options={{ gestureEnabled: false }} />
+    <WorkerHomeStack.Screen name="WorkerCertifications" component={WorkerCertificationsScreen} options={{ gestureEnabled: false }} />
+  </WorkerHomeStack.Navigator>;
+}
+
 export function WorkerMainTabs({
   verification, onRefresh,
 }: { verification: WorkerVerification; onRefresh: () => void }) {
@@ -94,8 +174,7 @@ export function WorkerMainTabs({
     <WorkerTab.Screen name="WorkerHome" options={{
       title: 'Inicio', tabBarIcon: tabIcon('home', 'home-outline'),
     }}>
-      {({ navigation }) => <WorkerHomeScreen verification={verification}
-        onProfile={() => navigation.navigate('WorkerProfile')} onRefresh={onRefresh} />}
+      {() => <WorkerHomeNavigator verification={verification} onRefresh={onRefresh} />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerAgenda" options={{
       title: 'Agenda', tabBarIcon: tabIcon('calendar', 'calendar-outline'),

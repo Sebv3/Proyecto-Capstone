@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -18,7 +19,7 @@ import {
 } from '../api/catalog';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
-type Props = { onExplore: () => void };
+type Props = { onExplore: () => void; onCategory: (id: string) => void; onService: (id: string) => void };
 
 const categoryStyles = [
   { background: '#DDF2E9', foreground: '#087A57' },
@@ -49,7 +50,7 @@ function formatPrice(price: number): string {
   }).format(price);
 }
 
-export function HomeCatalogSections({ onExplore }: Props) {
+export function HomeCatalogSections({ onExplore, onCategory, onService }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [services, setServices] = useState<CatalogService[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +72,7 @@ export function HomeCatalogSections({ onExplore }: Props) {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   if (loading) return <View style={styles.stateCard}>
     <ActivityIndicator color="#087A57" />
@@ -103,7 +104,7 @@ export function HomeCatalogSections({ onExplore }: Props) {
         return <Pressable
           accessibilityRole="button"
           key={category.id}
-          onPress={onExplore}
+          onPress={() => onCategory(category.id)}
           style={styles.category}
         >
           <View style={[styles.categoryIcon, { backgroundColor: colors.background }]}>
@@ -131,7 +132,7 @@ export function HomeCatalogSections({ onExplore }: Props) {
         return <Pressable
           accessibilityRole="button"
           key={service.id}
-          onPress={onExplore}
+          onPress={() => onService(service.id)}
           style={styles.serviceCard}
         >
           <View style={[styles.serviceIcon, { backgroundColor: colors.background }]}>

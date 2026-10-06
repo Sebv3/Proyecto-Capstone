@@ -53,7 +53,12 @@ export function RootNavigator() {
     if (user?.rol !== 'TRABAJADOR') return;
     let active = true;
     const workerId = user.id;
-    setFlow({ userId: workerId, state: 'loading', verification: null, error: null });
+    // Keep the current form mounted when returning from the system document picker.
+    // The first check and changes of user still require the session loading screen.
+    setFlow((current) => current.userId === workerId
+      && ['ready', 'documents', 'legacy-profile'].includes(current.state)
+      ? current
+      : { userId: workerId, state: 'loading', verification: null, error: null });
     void (async () => {
       try {
         try {

@@ -25,6 +25,12 @@
     "scheme": "servimatch",
     "plugins": [
       "expo-secure-store",
+      ["expo-location", {
+        "locationWhenInUsePermission": "Permite usar tu ubicación para elegir un punto y comparar la cercanía de los servicios.",
+        "isIosBackgroundLocationEnabled": false,
+        "isAndroidBackgroundLocationEnabled": false,
+        "isAndroidForegroundServiceEnabled": false
+      }],
       ["expo-image-picker", {
         "photosPermission": "Permite elegir imágenes del carnet y selfie para verificar tu identidad.",
         "cameraPermission": "Permite tomar fotos del carnet y selfie para verificar tu identidad.",
