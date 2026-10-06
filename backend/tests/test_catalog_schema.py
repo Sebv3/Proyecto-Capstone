@@ -111,3 +111,29 @@ def test_service_update_requires_at_least_one_field() -> None:
 def test_service_update_rejects_explicit_null(field: str) -> None:
     with pytest.raises(ValidationError):
         ServiceUpdate.model_validate({field: None})
+
+
+@pytest.mark.parametrize(
+    ("field", "minimum", "maximum"),
+    [("nombre", 3, 120), ("descripcion", 10, 1000), ("ubicacion_publica", 5, 240)],
+)
+def test_publication_text_boundaries_match_database(field, minimum, maximum) -> None:
+    values = {
+        "categoria_id": CATEGORY_ID, "nombre": "Reparacion",
+        "descripcion": "Reparacion completa", "precio_base": 1,
+        "duracion_estimada_minutos": 1, "modalidad": "TALLER",
+        "ubicacion_publica": "Sector Plaza Central", "latitud": -90, "longitud": 180,
+    }
+    for length in (minimum, maximum):
+        service = ServiceCreate.model_validate({**values, field: "x" * length})
+        assert len(getattr(service, field)) == length
+    for length in (minimum - 1, maximum + 1):
+        with pytest.raises(ValidationError):
+            ServiceCreate.model_validate({**values, field: "x" * length})
+
+
+def test_update_serialization_preserves_explicit_radius_clear_and_omits_unset_fields() -> None:
+    update = ServiceUpdate(modalidad="TALLER", radio_cobertura_km=None)
+    assert update.model_dump(mode="json", exclude_unset=True) == {
+        "modalidad": "TALLER", "radio_cobertura_km": None,
+    }

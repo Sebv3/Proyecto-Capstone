@@ -292,3 +292,73 @@ def test_cannot_update_another_workers_service(make_client) -> None:
     )
     assert response.status_code == 404
     assert response.json()["detail"] == "Servicio no encontrado"
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PATCH", "DELETE"])
+def test_worker_operations_require_authentication(make_client, method) -> None:
+    def handler(request):
+        pytest.fail("Una petición sin token no debe consultar Supabase")
+
+    path = "/api/v1/trabajador/servicios"
+    if method in {"PATCH", "DELETE"}:
+        path += f"/{SERVICE_ID}"
+    payload = {key: SERVICE[key] for key in (
+        "categoria_id", "nombre", "descripcion", "precio_base", "duracion_estimada_minutos",
+        "modalidad", "ubicacion_publica", "latitud", "longitud", "radio_cobertura_km",
+    )}
+    kwargs = {"json": payload} if method in {"POST", "PATCH"} else {}
+    assert make_client(handler).request(method, path, **kwargs).status_code == 401
+
+
+@pytest.mark.parametrize("method", ["GET", "PATCH", "DELETE"])
+def test_foreign_service_is_not_readable_or_mutable(make_client, method) -> None:
+    def handler(request):
+        authenticated = _authenticate(request)
+        if authenticated is not None:
+            return authenticated
+        assert request.method == "GET"
+        assert request.url.params["trabajador_id"] == f"eq.{WORKER_ID}"
+        assert request.url.params["id"] == f"eq.{SERVICE_ID}"
+        return httpx.Response(200, json=[])
+
+    kwargs = {"json": {"activo": False}} if method == "PATCH" else {}
+    response = make_client(handler).request(
+        method, f"/api/v1/trabajador/servicios/{SERVICE_ID}", headers=TOKEN_HEADERS, **kwargs
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("changes", [{"modalidad": "TALLER"}, {"radio_cobertura_km": None}])
+def test_partial_update_validates_effective_modality_and_coverage(make_client, changes) -> None:
+    def handler(request):
+        authenticated = _authenticate(request)
+        if authenticated is not None:
+            return authenticated
+        assert request.method == "GET", "No debe guardar una combinación incoherente"
+        return httpx.Response(200, json=[SERVICE])
+
+    response = make_client(handler).patch(
+        f"/api/v1/trabajador/servicios/{SERVICE_ID}", headers=TOKEN_HEADERS, json=changes
+    )
+    assert response.status_code == 422
+
+
+def test_legacy_service_without_location_can_be_deactivated(make_client) -> None:
+    legacy = {**SERVICE, "ubicacion_publica": None, "latitud": None,
+              "longitud": None, "radio_cobertura_km": None}
+
+    def handler(request):
+        authenticated = _authenticate(request)
+        if authenticated is not None:
+            return authenticated
+        if request.method == "GET":
+            return httpx.Response(200, json=[legacy])
+        assert json.loads(request.content) == {"activo": False}
+        return httpx.Response(200, json=[{**legacy, "activo": False}])
+
+    response = make_client(handler).patch(
+        f"/api/v1/trabajador/servicios/{SERVICE_ID}", headers=TOKEN_HEADERS,
+        json={"activo": False},
+    )
+    assert response.status_code == 200
+    assert response.json()["activo"] is False

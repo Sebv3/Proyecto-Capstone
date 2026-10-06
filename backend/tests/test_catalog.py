@@ -152,3 +152,73 @@ def test_service_detail_returns_404_when_not_found(make_client) -> None:
     response = make_client(handler).get(f"/api/v1/servicios/{SERVICE_ID}")
     assert response.status_code == 404
     assert response.json()["detail"] == "Servicio no encontrado"
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"q": "x"}, {"q": "x" * 101}, {"categoria_id": "invalid"},
+        {"modalidad": "REMOTO"}, {"precio_min": 0}, {"precio_max": -1},
+        {"limit": 0}, {"limit": 101}, {"offset": -1},
+    ],
+)
+def test_invalid_filters_never_reach_supabase(make_client, params) -> None:
+    def handler(request):
+        pytest.fail("Los filtros inválidos deben rechazarse antes del RPC")
+
+    assert make_client(handler).get("/api/v1/servicios", params=params).status_code == 422
+
+
+def test_empty_catalog_preserves_requested_pagination(make_client) -> None:
+    client = make_client(lambda request: httpx.Response(200, json=[]))
+    response = client.get("/api/v1/servicios", params={"limit": 10, "offset": 30})
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "total": 0, "limit": 10, "offset": 30}
+
+
+@pytest.mark.parametrize("path", ["categorias", "servicios", f"servicios/{SERVICE_ID}"])
+@pytest.mark.parametrize("payload", [{"unexpected": "object"}, [None], [{"id": SERVICE_ID}]])
+def test_malformed_catalog_payload_returns_controlled_error(make_client, path, payload) -> None:
+    response = make_client(lambda request: httpx.Response(200, json=payload)).get(
+        f"/api/v1/{path}"
+    )
+    assert response.status_code == 502
+    assert "inválida" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("path", ["categorias", "servicios", f"servicios/{SERVICE_ID}"])
+@pytest.mark.parametrize("status", [400, 401, 403, 500, 503])
+def test_catalog_upstream_errors_do_not_expose_private_details(make_client, path, status) -> None:
+    response = make_client(
+        lambda request: httpx.Response(status, json={"message": "private-database-detail"})
+    ).get(f"/api/v1/{path}")
+    assert response.status_code == (502 if status >= 500 else 400)
+    assert "private-database-detail" not in response.text
+
+
+@pytest.mark.parametrize("path", ["categorias", "servicios", f"servicios/{SERVICE_ID}"])
+def test_catalog_connection_failure_returns_502(make_client, path) -> None:
+    def handler(request):
+        raise httpx.ConnectError("private-hostname", request=request)
+
+    response = make_client(handler).get(f"/api/v1/{path}")
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Supabase no está disponible"
+
+
+def test_detail_projects_public_location_and_discards_private_fields(make_client) -> None:
+    row = {
+        **SERVICE_ROW, "ubicacion_publica": "Sector Plaza Central", "latitud": -33.45,
+        "longitud": -70.66, "radio_cobertura_km": 5, "rut": "12345678-5",
+        "email": "private@example.com", "direccion_base": "private address",
+        "documento_path": "private/document.pdf",
+    }
+    response = make_client(lambda request: httpx.Response(200, json=[row])).get(
+        f"/api/v1/servicios/{SERVICE_ID}"
+    )
+    assert response.status_code == 200
+    assert response.json()["ubicacion_publica"] == "Sector Plaza Central"
+    assert response.json()["radio_cobertura_km"] == 5
+    for private in ["rut", "email", "direccion_base", "documento_path"]:
+        assert private not in response.json()
+        assert private not in response.json()["trabajador"]

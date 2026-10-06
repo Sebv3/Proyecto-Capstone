@@ -8,6 +8,7 @@ from app.routers.admin_worker_role_requests import (
     router as admin_worker_role_requests_router,
 )
 from app.routers.auth import router as auth_router
+from app.routers.bookings import router as bookings_router
 from app.routers.catalog import router as catalog_router
 from app.routers.client_profiles import router as client_profiles_router
 from app.routers.locations import router as locations_router
@@ -49,6 +50,7 @@ app.include_router(worker_verification_router)
 app.include_router(worker_role_requests_router)
 app.include_router(worker_services_router)
 app.include_router(worker_certifications_router)
+app.include_router(bookings_router)
 
 
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["Sistema"])
