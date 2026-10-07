@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getOwnServices, WorkerService, workerServicesErrorMessage } from '../api/workerServices';
+import { deleteWorkerService, getOwnServices, WorkerService, workerServicesErrorMessage } from '../api/workerServices';
 import type { WorkerVerification } from '../api/workerVerification';
 import { useAuth } from '../auth/AuthContext';
 
@@ -14,11 +14,12 @@ function formatPrice(price: number): string {
 }
 
 export function WorkerHomeScreen({
-  verification, onRefresh, onPublish, onCertifications, publishedServiceName, onDismissSuccess,
+  verification, onRefresh, onPublish, onEdit, onCertifications, publishedServiceName, updatedServiceName, onDismissSuccess,
 }: {
   verification: WorkerVerification; onRefresh: () => void; onPublish: () => void;
   onCertifications: () => void;
-  publishedServiceName?: string; onDismissSuccess: () => void;
+  onEdit: (serviceId: string) => void;
+  publishedServiceName?: string; updatedServiceName?: string; onDismissSuccess: () => void;
 }) {
   const { user, withAccessToken } = useAuth();
   const request = useRef(withAccessToken);
@@ -26,6 +27,11 @@ export function WorkerHomeScreen({
   const [services, setServices] = useState<WorkerService[]>([]);
   const [servicesError, setServicesError] = useState('');
   const [loadingServices, setLoadingServices] = useState(true);
+  const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
   const approved = verification.estado === 'APROBADA';
 
   const loadServices = useCallback(async () => {
@@ -41,6 +47,17 @@ export function WorkerHomeScreen({
   }, []);
 
   useFocusEffect(useCallback(() => { void loadServices(); }, [loadServices]));
+
+  async function removeService(service: WorkerService) {
+    if (deletingRef.current) return;
+    deletingRef.current = true; setDeleting(true); setActionError(''); setActionSuccess('');
+    try {
+      await request.current((token) => deleteWorkerService(token, service.id));
+      setServices((items) => items.map((item) => item.id === service.id ? { ...item, activo: false } : item));
+      setDeleteCandidate(null); setActionSuccess(`${service.nombre} fue eliminado de tus publicaciones activas.`);
+    } catch (reason) { setActionError(workerServicesErrorMessage(reason)); }
+    finally { deletingRef.current = false; setDeleting(false); }
+  }
 
   const activeServices = services.filter((service) => service.activo).length;
   const remainingServices = Math.max(0, 5 - activeServices);
@@ -59,10 +76,10 @@ export function WorkerHomeScreen({
         </View>
       </View>
 
-      {!!publishedServiceName && <View style={styles.successCard}>
+      {!!(publishedServiceName || updatedServiceName) && <View style={styles.successCard}>
         <View style={styles.verificationBody}>
-          <Text accessibilityLiveRegion="polite" style={styles.infoTitle}>Servicio publicado</Text>
-          <Text style={styles.hint}>{publishedServiceName} ya está disponible en el catálogo.</Text>
+          <Text accessibilityLiveRegion="polite" style={styles.infoTitle}>{updatedServiceName ? 'Servicio actualizado' : 'Servicio publicado'}</Text>
+          <Text style={styles.hint}>{updatedServiceName || publishedServiceName} {updatedServiceName ? 'se guardó correctamente.' : 'ya está disponible en el catálogo.'}</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar confirmación" onPress={onDismissSuccess} style={styles.dismiss}>
           <Ionicons name="close" size={22} color="#256047" />
@@ -115,17 +132,20 @@ export function WorkerHomeScreen({
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionLabel}>TUS SERVICIOS RECIENTES</Text>
       </View>
+      {!!actionError && <Text accessibilityRole="alert" style={styles.errorText}>{actionError}</Text>}
+      {!!actionSuccess && <Text accessibilityLiveRegion="polite" style={styles.link}>{actionSuccess}</Text>}
       {loadingServices ? <View style={styles.infoCard}><Text style={styles.hint}>Cargando tus servicios…</Text></View> : servicesError
         ? <View style={styles.infoCard}>
           <Text style={styles.errorText}>{servicesError}</Text>
           <Pressable onPress={() => void loadServices()}><Text style={styles.link}>Reintentar</Text></Pressable>
         </View>
-        : services.length === 0
+        : activeServices === 0
           ? <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Aún no tienes servicios</Text>
             <Text style={styles.hint}>{approved ? 'Publica tu primer servicio para que los clientes puedan encontrarlo.' : 'Podrás publicar cuando tu identidad esté aprobada.'}</Text>
           </View>
-          : services.slice(0, 3).map((service) => <View key={service.id} style={styles.serviceCard}>
+          : services.filter((service) => service.activo).map((service) => <View key={service.id} style={styles.serviceWrapper}>
+            <View style={styles.serviceRow}>
             <View style={styles.serviceIcon}>
               <Ionicons name="construct-outline" size={25} color="#087A57" />
             </View>
@@ -140,6 +160,27 @@ export function WorkerHomeScreen({
                 {service.activo ? 'Activo' : 'Inactivo'}
               </Text>
             </View>
+            </View>
+            <View style={styles.serviceActions}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Editar ${service.nombre}`} disabled={deleting}
+                style={styles.serviceAction} onPress={() => { setDeleteCandidate(null); setActionError(''); onEdit(service.id); }}>
+                <Ionicons name="create-outline" size={18} color="#256047" /><Text style={styles.link}>Editar</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Eliminar ${service.nombre}`} disabled={deleting}
+                style={styles.serviceAction} onPress={() => { setDeleteCandidate(service.id); setActionError(''); setActionSuccess(''); }}>
+                <Ionicons name="trash-outline" size={18} color="#A74444" /><Text style={styles.deleteText}>Eliminar</Text>
+              </Pressable>
+            </View>
+            {deleteCandidate === service.id && <View style={styles.deleteNotice}>
+              <Text style={styles.infoTitle}>¿Eliminar este servicio?</Text>
+              <Text style={styles.hint}>Se retirará del catálogo y del mapa. Las solicitudes existentes conservarán su historial.</Text>
+              <View style={styles.serviceActions}>
+                <Pressable accessibilityRole="button" disabled={deleting} style={styles.serviceAction} onPress={() => setDeleteCandidate(null)}><Text style={styles.link}>Cancelar</Text></Pressable>
+                <Pressable accessibilityRole="button" disabled={deleting} style={styles.serviceAction} onPress={() => void removeService(service)}>
+                  {deleting ? <ActivityIndicator color="#A74444" /> : <Text style={styles.deleteText}>Confirmar eliminación</Text>}
+                </Pressable>
+              </View>
+            </View>}
           </View>)}
 
       <View style={styles.sectionHeader}>
@@ -194,7 +235,12 @@ const styles = StyleSheet.create({
   infoCard: { padding: 18, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#DCE6E1' },
   infoTitle: { color: '#14251F', fontSize: 15, fontWeight: '800' },
   errorText: { color: '#A74444', fontSize: 13, marginBottom: 10 },
-  serviceCard: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 12, marginBottom: 9, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#DCE6E1' },
+  serviceWrapper: { padding: 12, marginBottom: 9, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#DCE6E1' },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  serviceActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 6 },
+  serviceAction: { minHeight: 44, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  deleteText: { color: '#A74444', fontSize: 14, fontWeight: '700' },
+  deleteNotice: { padding: 12, borderRadius: 12, backgroundColor: '#FFF2EF', marginTop: 8 },
   serviceIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#DDF2E9' },
   serviceBody: { flex: 1 },
   serviceName: { color: '#14251F', fontSize: 14, fontWeight: '800' },

@@ -6,7 +6,7 @@ process.env.EXPO_PUBLIC_API_URL = 'http://localhost:8000/api/v1';
 let handler;
 axios.defaults.adapter = (config) => handler(config);
 const { serviceSchema } = await import('../src/services/serviceSchema.ts');
-const { createWorkerService, getOwnServices, workerServicesErrorMessage } = await import('../src/api/workerServices.ts');
+const { createWorkerService, getOwnServices, getOwnService, updateWorkerService, deleteWorkerService, workerServicesErrorMessage } = await import('../src/api/workerServices.ts');
 const { getCategories } = await import('../src/api/catalog.ts');
 const { requestWithSession } = await import('../src/auth/requestWithSession.ts');
 const values = {
@@ -126,4 +126,35 @@ test('publication failures explain restrictions and hide upstream response detai
     assert.doesNotMatch(message, /private|database/);
   }
   assert.match(workerServicesErrorMessage(new axios.AxiosError('Network Error')), /conexión/);
+});
+test('editing loads the selected service through the authenticated owner endpoint', async () => {
+  const service = { ...serviceSchema.parse(values), id: 'service-1', activo: true };
+  handler = async (config) => {
+    assert.equal(config.method, 'get');
+    assert.equal(config.url, '/trabajador/servicios/service-1');
+    assert.equal(config.headers.Authorization, 'Bearer worker-token');
+    return response(config, service);
+  };
+  assert.deepEqual(await getOwnService('worker-token', 'service-1'), service);
+});
+test('editing patches the selected service and excludes ownership and activation fields', async () => {
+  const parsed = serviceSchema.parse(values);
+  handler = async (config) => {
+    assert.equal(config.method, 'patch');
+    assert.equal(config.url, '/trabajador/servicios/service-1');
+    assert.equal(config.headers.Authorization, 'Bearer worker-token');
+    assert.deepEqual(JSON.parse(config.data), parsed);
+    return response(config, { ...parsed, id: 'service-1' });
+  };
+  await updateWorkerService('worker-token', 'service-1', { ...parsed, id: 'other-service', trabajador_id: 'other-worker', activo: true });
+});
+test('deletion uses the authenticated soft-delete endpoint without sending an editable payload', async () => {
+  handler = async (config) => {
+    assert.equal(config.method, 'delete');
+    assert.equal(config.url, '/trabajador/servicios/service-1');
+    assert.equal(config.headers.Authorization, 'Bearer worker-token');
+    assert.equal(config.data, undefined);
+    return { ...response(config, undefined), status: 204 };
+  };
+  assert.equal(await deleteWorkerService('worker-token', 'service-1'), undefined);
 });

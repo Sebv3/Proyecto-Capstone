@@ -263,3 +263,13 @@ No muestra reseñas, estadísticas sin datos ni porcentajes de comisión fictici
 El envío conserva el estado PENDIENTE y no realiza un cobro. Probar navegación de
 meses, cambio de fecha que borra la hora, cambio de modalidad por servicio, dirección
 en ambas modalidades y pantallas con fuentes grandes.
+
+Inicio del trabajador: cada publicación activa ofrece Editar y Eliminar.
+Editar reutiliza el formulario con los datos actuales y guarda con PATCH; no crea
+otra publicación ni consume un nuevo cupo. Las ofertas antiguas deben completar
+ubicación pública para guardar desde este formulario. Eliminar pide confirmación
+y utiliza el DELETE existente, que desactiva la oferta y conserva las solicitudes
+y sus instantáneas. La publicación desaparece del catálogo, mapa e inicio, y libera
+un cupo. No requiere nuevas migraciones. Probar guardar/cancelar edición, editar
+con cinco servicios activos, completar ubicación antigua y cancelar/confirmar
+eliminación; comprobar que otro trabajador no pueda modificar la publicación.

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCategories, type Category } from '../api/catalog';
-import { createWorkerService, getOwnServices, workerServicesErrorMessage } from '../api/workerServices';
+import { createWorkerService, getOwnService, getOwnServices, updateWorkerService, workerServicesErrorMessage } from '../api/workerServices';
 import { getWorkerVerification } from '../api/workerVerification';
 import { getWorkerCertifications, type WorkerCertification } from '../api/workerCertifications';
 import { useAuth } from '../auth/AuthContext';
@@ -27,7 +27,9 @@ const fields = [
   { name: 'duracion_estimada_minutos', label: 'Duración estimada (minutos)', placeholder: 'Ej. 60' },
 ] as const;
 
-export function PublishServiceScreen({ navigation }: NativeStackScreenProps<WorkerHomeStackParamList, 'PublishService'>) {
+export function PublishServiceScreen({ navigation, route }: NativeStackScreenProps<WorkerHomeStackParamList, 'PublishService'>) {
+  const serviceId = route.params?.serviceId;
+  const initialized = useRef<string | null>(null);
   const { withAccessToken } = useAuth();
   const request = useRef(withAccessToken);
   request.current = withAccessToken;
@@ -42,7 +44,7 @@ export function PublishServiceScreen({ navigation }: NativeStackScreenProps<Work
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [certifications, setCertifications] = useState<WorkerCertification[]>([]);
   const [certificationsError, setCertificationsError] = useState(false);
-  const { control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } =
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } =
     useForm<ServiceFormValues, unknown, ServiceCreateValues>({
       resolver: zodResolver(serviceSchema),
       defaultValues: { categoria_id: '', nombre: '', descripcion: '', precio_base: '', duracion_estimada_minutos: '', ubicacion_publica: '', radio_cobertura_km: '5' },
@@ -64,10 +66,11 @@ export function PublishServiceScreen({ navigation }: NativeStackScreenProps<Work
     setRestriction('');
     void (async () => {
       try {
-        const [items, verification, services, certificates] = await Promise.all([
+        const [items, verification, services, certificates, existing] = await Promise.all([
           getCategories(), request.current(getWorkerVerification), request.current(getOwnServices),
           request.current(getWorkerCertifications).then((items) => ({ items, failed: false }))
             .catch(() => ({ items: [] as WorkerCertification[], failed: true })),
+          serviceId ? request.current((token) => getOwnService(token, serviceId)) : Promise.resolve(null),
         ]);
         if (!active) return;
         setCategories(items);
@@ -75,8 +78,17 @@ export function PublishServiceScreen({ navigation }: NativeStackScreenProps<Work
         setCertificationsError(certificates.failed);
         if (verification.estado !== 'APROBADA') {
           setRestriction('Tu identidad debe estar aprobada antes de publicar un servicio.');
-        } else if (services.filter((service) => service.activo).length >= 5) {
+        } else if (!serviceId && services.filter((service) => service.activo).length >= 5) {
           setRestriction('Ya tienes cinco servicios activos. Desactiva uno antes de publicar otro.');
+        }
+        if (existing && !existing.activo) setRestriction('Este servicio ya fue eliminado de tus publicaciones activas.');
+        if (existing && initialized.current !== existing.id) {
+          reset({ categoria_id: existing.categoria_id, nombre: existing.nombre, descripcion: existing.descripcion,
+            precio_base: String(existing.precio_base), duracion_estimada_minutos: String(existing.duracion_estimada_minutos),
+            modalidad: existing.modalidad, ubicacion_publica: existing.ubicacion_publica ?? '',
+            latitud: existing.latitud ?? undefined, longitud: existing.longitud ?? undefined,
+            radio_cobertura_km: String(existing.radio_cobertura_km ?? 5) });
+          initialized.current = existing.id;
         }
       } catch {
         if (active) setLoadError('No pudimos cargar las categorías y comprobar tu cuenta. Inténtalo nuevamente.');
@@ -85,7 +97,7 @@ export function PublishServiceScreen({ navigation }: NativeStackScreenProps<Work
       }
     })();
     return () => { active = false; };
-  }, [reloadKey]));
+  }, [reloadKey, serviceId, reset]));
 
   const submit = handleSubmit(async (values) => {
     if (submitting.current || submitDisabled) return;
@@ -96,9 +108,11 @@ export function PublishServiceScreen({ navigation }: NativeStackScreenProps<Work
     submitting.current = true;
     setError('');
     try {
-      const service = await request.current((token) => createWorkerService(token, values));
+      const service = await request.current((token) => serviceId
+        ? updateWorkerService(token, serviceId, values) : createWorkerService(token, values));
       blurFocusedElementOnWeb();
-      navigation.popTo('WorkerDashboard', { publishedServiceName: service.nombre });
+      navigation.popTo('WorkerDashboard', serviceId
+        ? { updatedServiceName: service.nombre } : { publishedServiceName: service.nombre });
     } catch (reason) {
       setError(workerServicesErrorMessage(reason));
     } finally {
@@ -114,8 +128,8 @@ export function PublishServiceScreen({ navigation }: NativeStackScreenProps<Work
           <Ionicons name="arrow-back" size={22} color="#256047" />
           <Text style={styles.link}>Volver</Text>
         </Pressable>
-        <Text accessibilityRole="header" style={styles.title}>Publicar servicio</Text>
-        <Text style={styles.hint}>Cuéntales a los clientes qué ofreces. Puedes tener hasta cinco servicios activos.</Text>
+        <Text accessibilityRole="header" style={styles.title}>{serviceId ? 'Editar servicio' : 'Publicar servicio'}</Text>
+        <Text style={styles.hint}>{serviceId ? 'Actualiza los datos de tu publicación. Las solicitudes existentes conservan lo acordado al crearse. Completa la ubicación pública para guardar.' : 'Cuéntales a los clientes qué ofreces. Puedes tener hasta cinco servicios activos.'}</Text>
 
         {loading && <View style={styles.state}><ActivityIndicator color="#087A57" /><Text style={styles.hint}>Preparando el formulario…</Text></View>}
         {!!loadError && <View style={styles.state}>
@@ -217,8 +231,8 @@ export function PublishServiceScreen({ navigation }: NativeStackScreenProps<Work
           </View>}
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: submitDisabled, busy: isSubmitting }} disabled={submitDisabled}
             onPress={() => void submit()} style={[styles.button, submitDisabled && styles.disabled]}>
-            {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="add-circle-outline" size={22} color="#FFFFFF" />}
-            <Text style={styles.buttonText}>{isSubmitting ? 'Publicando…' : 'Publicar servicio'}</Text>
+            {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name={serviceId ? 'save-outline' : 'add-circle-outline'} size={22} color="#FFFFFF" />}
+            <Text style={styles.buttonText}>{isSubmitting ? 'Guardando…' : serviceId ? 'Guardar cambios' : 'Publicar servicio'}</Text>
           </Pressable>
         </View>
       </ScrollView>

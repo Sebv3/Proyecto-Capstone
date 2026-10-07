@@ -162,8 +162,8 @@ type WorkerTabParamList = {
 const WorkerTab = createBottomTabNavigator<WorkerTabParamList>();
 
 export type WorkerHomeStackParamList = {
-  WorkerDashboard: { publishedServiceName?: string } | undefined;
-  PublishService: undefined;
+  WorkerDashboard: { publishedServiceName?: string; updatedServiceName?: string } | undefined;
+  PublishService: { serviceId?: string } | undefined;
   WorkerCertifications: { categoryId?: string } | undefined;
 };
 const WorkerHomeStack = createNativeStackNavigator<WorkerHomeStackParamList>();
@@ -175,9 +175,11 @@ function WorkerHomeNavigator({ verification, onRefresh }: {
     <WorkerHomeStack.Screen name="WorkerDashboard">
       {({ navigation, route }) => <WorkerHomeScreen verification={verification} onRefresh={onRefresh}
         onPublish={() => navigation.navigate('PublishService')}
+        onEdit={(serviceId) => navigation.navigate('PublishService', { serviceId })}
         onCertifications={() => navigation.navigate('WorkerCertifications')}
         publishedServiceName={route.params?.publishedServiceName}
-        onDismissSuccess={() => navigation.setParams({ publishedServiceName: undefined })} />}
+        updatedServiceName={route.params?.updatedServiceName}
+        onDismissSuccess={() => navigation.setParams({ publishedServiceName: undefined, updatedServiceName: undefined })} />}
     </WorkerHomeStack.Screen>
     <WorkerHomeStack.Screen name="PublishService" component={PublishServiceScreen} options={{ gestureEnabled: false }} />
     <WorkerHomeStack.Screen name="WorkerCertifications" component={WorkerCertificationsScreen} options={{ gestureEnabled: false }} />

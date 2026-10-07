@@ -34,6 +34,29 @@ export async function getOwnServices(accessToken: string): Promise<WorkerService
   });
   return data;
 }
+export async function getOwnService(accessToken: string, serviceId: string): Promise<WorkerService> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  const { data } = await api.get<WorkerService>(`/trabajador/servicios/${encodeURIComponent(serviceId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return data;
+}
+export async function updateWorkerService(accessToken: string, serviceId: string, values: WorkerServiceCreate): Promise<WorkerService> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  const { data } = await api.patch<WorkerService>(`/trabajador/servicios/${encodeURIComponent(serviceId)}`, {
+    categoria_id: values.categoria_id, nombre: values.nombre, descripcion: values.descripcion,
+    precio_base: values.precio_base, duracion_estimada_minutos: values.duracion_estimada_minutos,
+    modalidad: values.modalidad, ubicacion_publica: values.ubicacion_publica,
+    latitud: values.latitud, longitud: values.longitud, radio_cobertura_km: values.radio_cobertura_km,
+  }, { headers: { Authorization: `Bearer ${accessToken}` } });
+  return data;
+}
+export async function deleteWorkerService(accessToken: string, serviceId: string): Promise<void> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  await api.delete(`/trabajador/servicios/${encodeURIComponent(serviceId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
 
 export async function createWorkerService(
   accessToken: string, values: WorkerServiceCreate,
@@ -65,7 +88,9 @@ export function workerServicesErrorMessage(error: unknown): string {
       }
       return 'Tu cuenta debe estar activa y tu identidad aprobada para publicar servicios.';
     }
-    if (status === 409) return 'Ya tienes cinco servicios activos. Desactiva uno antes de publicar otro.';
+    if (status === 404) return 'El servicio ya no está disponible. Actualiza tus publicaciones.';
+    if (status === 409) return error.response.data?.detail === 'El servicio cambió; vuelve a intentarlo'
+      ? 'El servicio cambió. Vuelve a abrirlo antes de guardar.' : 'Ya tienes cinco servicios activos. Desactiva uno antes de publicar otro.';
     if (status === 422) return 'Revisa los campos y comprueba que la categoría siga disponible.';
     if (status === 429) return 'Demasiados intentos. Espera un momento antes de volver a publicar.';
     if (status >= 500) return 'El servicio no está disponible. Inténtalo más tarde.';
