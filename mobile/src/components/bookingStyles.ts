@@ -1,0 +1,27 @@
+import { StyleSheet } from 'react-native';
+
+export const bookingStyles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#F3F6F4' }, flex: { flex: 1 },
+  width: { width: '100%', maxWidth: 680, alignSelf: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  back: { width: 44, height: 44, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E8E3', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { color: '#162B22', fontSize: 19, fontWeight: '800', flex: 1 },
+  content: { padding: 16, paddingBottom: 28, gap: 16, width: '100%', maxWidth: 680, alignSelf: 'center' },
+  card: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E8E3', borderRadius: 20, padding: 18, gap: 8 },
+  section: { color: '#162B22', fontSize: 16, fontWeight: '800' },
+  eyebrow: { color: '#667B70', fontSize: 12, fontWeight: '700', letterSpacing: 0.7, marginTop: 4 },
+  text: { color: '#5D7367', fontSize: 14, lineHeight: 22 },
+  hint: { color: '#7B8E83', fontSize: 12, lineHeight: 18 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 }, between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  label: { color: '#52695C', fontSize: 13, fontWeight: '600' }, value: { color: '#162B22', fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  input: { minHeight: 50, borderWidth: 1, borderColor: '#DAE5DE', borderRadius: 14, padding: 12, color: '#243E30', backgroundColor: '#FFFFFF', fontSize: 14 },
+  chip: { flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: '#DAE5DE', borderRadius: 24, paddingVertical: 11, paddingHorizontal: 14, alignItems: 'center', minHeight: 44 },
+  active: { borderColor: '#087D56', backgroundColor: '#E4F3EB' }, green: { color: '#087D56' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  footer: { backgroundColor: '#F3F6F4', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderColor: '#E0E8E3', gap: 6, width: '100%', maxWidth: 680, alignSelf: 'center' },
+  button: { minHeight: 52, backgroundColor: '#087D56', borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 10 },
+  buttonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' }, disabled: { opacity: 0.45 },
+  link: { color: '#087D56', fontSize: 13, fontWeight: '700' }, action: { minHeight: 44, justifyContent: 'center' },
+  error: { color: '#A74444', fontSize: 14, lineHeight: 20 }, state: { alignItems: 'center', gap: 12, padding: 28 },
+  separator: { height: 1, backgroundColor: '#E0E8E3', marginVertical: 6 },
+});

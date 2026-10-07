@@ -206,3 +206,60 @@ Prueba visual aislada (sin Supabase ni registros reales):
 `http://127.0.0.1:8093`. Comprobar capas, atribución, selección de ambas modalidades
 y la elección manual de un punto;
 detener el proceso con Ctrl+C al terminar.
+
+## SCRUM-48: agendar un servicio
+
+Desde el detalle en Inicio, Buscar o Mapa, pulsar **Agendar servicio**. La pantalla
+consulta el servicio vigente y sus bloques de disponibilidad. Permite escribir
+fecha `DD-MM-AAAA` mediante un calendario y seleccionar hora `HH:MM` en las opciones
+generadas desde los bloques publicados, cada 30 minutos. Se muestra la zona horaria del dispositivo; el envío utiliza
+un instante UTC con zona horaria, no una fecha sin zona.
+
+La modalidad pertenece a la oferta. DOMICILIO exige una dirección privada de
+atención; TALLER muestra la dirección pública y no envía una dirección del cliente.
+El formulario verifica futuro, duración completa dentro de un bloque y longitud
+de la dirección. El backend vuelve a comprobar disponibilidad, permisos y
+duplicados. Los bloques publicados no garantizan que todos sus minutos estén
+libres: ante un conflicto se informa al cliente y puede actualizar los horarios.
+Una solicitud creada queda PENDIENTE; no representa aceptación ni realiza un pago.
+
+Requiere las migraciones de ubicaciones, `20261006210000_create_bookings.sql` y
+`20261006220000_booking_operations.sql`. El trabajador necesita publicar bloques
+con `POST /api/v1/trabajador/servicios/{id}/disponibilidad`, usando su token y
+`inicio_en`/`fin_en` ISO con zona horaria. La lista de solicitudes sigue en su tarea
+correspondiente.
+
+Pruebas: `npm run typecheck` y `npm run test:bookings`. Prueba manual en Expo Go:
+publicar un bloque futuro para cada modalidad; agendar ambos, comprobar dirección
+privada frente a dirección del taller y confirmación PENDIENTE; intentar fecha
+pasada, duración que excede el bloque, sin bloques y repetir el mismo horario.
+Verificar actualización de sesión, pérdida de conexión y regreso al servicio.
+
+## Agenda del trabajador
+
+La pestaña Agenda permite seleccionar un servicio activo propio, publicar bloques
+del mismo día y consultar/eliminar sus bloques futuros. La fecha usa calendario
+y campo DD-MM-AAAA. Fecha y horas son locales
+al dispositivo y se envían como instantes UTC. El formulario exige inicio futuro,
+término posterior e intervalo suficiente para la duración del servicio. No crea
+horarios automáticamente. El cliente consulta los mismos bloques al agendar.
+
+La consulta utiliza el endpoint público de disponibilidad: el servicio debe seguir
+visible en catálogo (cuenta activa, verificación y certificación correspondientes).
+La creación y eliminación usan el token del trabajador, con renovación de sesión.
+Eliminar solicita confirmación y muestra el conflicto si hay reservas confirmadas.
+Ante pérdida de conexión, actualizar los bloques antes de repetir la operación.
+
+Probar en Expo Go: ingresar como trabajador, abrir Agenda, elegir un servicio y
+publicar mañana de 09:00 a 18:00; como cliente abrir el mismo servicio, actualizar
+horarios y enviar una solicitud. Comprobar además bloque corto, fecha pasada,
+eliminación, servicio sin bloques y error de eliminación con reserva confirmada.
+
+El detalle del cliente muestra presentación del servicio, descripción, trabajador
+con identidad verificada y sus primeros bloques publicados; el botón Agendar queda
+fijo al pie. Agendar muestra calendario con días habilitados por bloques y duración,
+horas seleccionables, modalidad de la oferta, dirección y resumen del precio base.
+No muestra reseñas, estadísticas sin datos ni porcentajes de comisión ficticios.
+El envío conserva el estado PENDIENTE y no realiza un cobro. Probar navegación de
+meses, cambio de fecha que borra la hora, cambio de modalidad por servicio, dirección
+en ambas modalidades y pantallas con fuentes grandes.

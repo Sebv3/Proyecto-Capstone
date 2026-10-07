@@ -102,3 +102,29 @@ Prueba de ubicaciones: en una base PostgreSQL desechable montada en `/fixtures`,
 ejecutar `tests/certifications_fixture.sql`, la migración de certificaciones y
 `tests/service_locations_rules.sql`. Este último aplica la migración de ubicación
 después de insertar una oferta antigua para comprobar compatibilidad.
+
+## Sprint 4: solicitudes y disponibilidad
+
+`20261006210000_create_bookings.sql` implementa SCRUM-45: instantáneas del servicio,
+fecha con zona horaria, modalidad, estados y lectura privada por participantes.
+`20261006220000_booking_operations.sql` implementa SCRUM-46 y aplica las
+transiciones de SCRUM-47 también en base de datos. Requiere previamente
+certificaciones y ubicaciones de servicios. Revisar con el equipo antes de aplicar
+al proyecto compartido. SCRUM-48 utiliza estos contratos sin agregar tablas nuevas.
+
+La disponibilidad la publica el trabajador con el endpoint autenticado. No se
+crean horarios ficticios en producción. Crear una solicitud exige un bloque que
+contenga toda la duración. Aceptar reserva el tiempo del trabajador, incluso entre
+ofertas distintas, y rechaza solicitudes pendientes superpuestas. Las operaciones
+utilizan bloqueos transaccionales. La transición ACEPTADA → PAGADA está reservada
+al proceso de pago y no se puede forzar desde los endpoints de participantes.
+
+Pruebas solo en PostgreSQL desechable: para el modelo usar
+`tests/certifications_fixture.sql`, la migración del modelo y
+`tests/booking_model_rules.sql`. Para operaciones usar el fixture, migraciones de
+certificaciones, ubicaciones, modelo y operaciones, luego
+`tests/booking_operations_rules.sql`. Para concurrencia ejecutar
+`tests/booking_concurrency_setup.sql`, lanzar los scripts `booking_concurrency_a.sql`
+y `booking_concurrency_b.sql` simultáneamente y ejecutar
+`booking_concurrency_verify.sql`: una aceptación debe fallar por conflicto y la
+otra quedar confirmada. Nunca ejecutar fixtures o estas pruebas en Supabase real.

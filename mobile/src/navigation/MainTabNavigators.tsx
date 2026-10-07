@@ -13,6 +13,8 @@ import { ServiceSearchScreen } from '../screens/ServiceSearchScreen';
 import { ServiceDetailScreen } from '../screens/ServiceDetailScreen';
 import { WorkerCertificationsScreen } from '../screens/WorkerCertificationsScreen';
 import { ClientMapScreen } from '../screens/ClientMapScreen';
+import { ScheduleServiceScreen } from '../screens/ScheduleServiceScreen';
+import { WorkerAgendaScreen } from '../screens/WorkerAgendaScreen';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -58,16 +60,19 @@ const ClientTab = createBottomTabNavigator<ClientTabParamList>();
 type ClientHomeStackParamList = {
   ClientDashboard: undefined;
   ServiceDetail: { serviceId: string };
+  ScheduleService: { serviceId: string };
 };
 type ClientSearchStackParamList = {
   ServiceSearch: undefined;
   ServiceDetail: { serviceId: string };
+  ScheduleService: { serviceId: string };
 };
 const ClientHomeStack = createNativeStackNavigator<ClientHomeStackParamList>();
 const ClientSearchStack = createNativeStackNavigator<ClientSearchStackParamList>();
 type ClientMapStackParamList = {
   CoverageMap: undefined;
   ServiceDetail: { serviceId: string };
+  ScheduleService: { serviceId: string };
 };
 const ClientMapStack = createNativeStackNavigator<ClientMapStackParamList>();
 
@@ -77,7 +82,11 @@ function ClientMapNavigator() {
       {({ navigation }) => <ClientMapScreen onService={(serviceId) => navigation.navigate('ServiceDetail', { serviceId })} />}
     </ClientMapStack.Screen>
     <ClientMapStack.Screen name="ServiceDetail">
-      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
+      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()}
+        onSchedule={() => navigation.navigate('ScheduleService', { serviceId: route.params.serviceId })} />}
+    </ClientMapStack.Screen>
+    <ClientMapStack.Screen name="ScheduleService" options={{ gestureEnabled: false }}>
+      {({ navigation, route }) => <ScheduleServiceScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
     </ClientMapStack.Screen>
   </ClientMapStack.Navigator>;
 }
@@ -89,7 +98,11 @@ function ClientHomeNavigator({ onSearch }: { onSearch: (categoryId?: string) => 
         onService={(serviceId) => navigation.navigate('ServiceDetail', { serviceId })} />}
     </ClientHomeStack.Screen>
     <ClientHomeStack.Screen name="ServiceDetail">
-      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
+      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()}
+        onSchedule={() => navigation.navigate('ScheduleService', { serviceId: route.params.serviceId })} />}
+    </ClientHomeStack.Screen>
+    <ClientHomeStack.Screen name="ScheduleService" options={{ gestureEnabled: false }}>
+      {({ navigation, route }) => <ScheduleServiceScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
     </ClientHomeStack.Screen>
   </ClientHomeStack.Navigator>;
 }
@@ -101,7 +114,11 @@ function ClientSearchNavigator({ initialCategoryId }: { initialCategoryId?: stri
         onService={(serviceId) => navigation.navigate('ServiceDetail', { serviceId })} />}
     </ClientSearchStack.Screen>
     <ClientSearchStack.Screen name="ServiceDetail">
-      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
+      {({ navigation, route }) => <ServiceDetailScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()}
+        onSchedule={() => navigation.navigate('ScheduleService', { serviceId: route.params.serviceId })} />}
+    </ClientSearchStack.Screen>
+    <ClientSearchStack.Screen name="ScheduleService" options={{ gestureEnabled: false }}>
+      {({ navigation, route }) => <ScheduleServiceScreen serviceId={route.params.serviceId} onBack={() => navigation.goBack()} />}
     </ClientSearchStack.Screen>
   </ClientSearchStack.Navigator>;
 }
@@ -179,7 +196,7 @@ export function WorkerMainTabs({
     <WorkerTab.Screen name="WorkerAgenda" options={{
       title: 'Agenda', tabBarIcon: tabIcon('calendar', 'calendar-outline'),
     }}>
-      {() => <ComingSoonScreen title="Agenda" />}
+      {() => <WorkerAgendaScreen />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerRequests" options={{
       title: 'Solicitudes', tabBarIcon: tabIcon('document-text', 'document-text-outline'),
