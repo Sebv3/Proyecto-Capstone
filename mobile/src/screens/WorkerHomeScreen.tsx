@@ -130,7 +130,7 @@ export function WorkerHomeScreen({
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>TUS SERVICIOS RECIENTES</Text>
+        <Text style={styles.sectionLabel}>TUS SERVICIOS</Text>
       </View>
       {!!actionError && <Text accessibilityRole="alert" style={styles.errorText}>{actionError}</Text>}
       {!!actionSuccess && <Text accessibilityLiveRegion="polite" style={styles.link}>{actionSuccess}</Text>}
