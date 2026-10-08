@@ -222,7 +222,7 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
               <Pressable accessibilityRole="button" disabled={isSubmitting} accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
                 style={[styles.button, isSubmitting && styles.disabled]} onPress={() => void submit()}>
                 {isSubmitting && <ActivityIndicator color="#FFFFFF" />}
-                <Text style={styles.buttonText}>{isSubmitting ? 'Creando cuenta…' : role === 'TRABAJADOR' ? 'Crear cuenta y continuar' : 'Crear cuenta'}</Text>
+                <Text style={styles.buttonText}>{isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}</Text>
               </Pressable>
             </>
             <Pressable accessibilityRole="button" disabled={isSubmitting} style={styles.link} onPress={() => {
