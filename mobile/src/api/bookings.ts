@@ -6,13 +6,83 @@ export type Booking = {
   servicio_nombre: string; precio_base: number; duracion_estimada_minutos: number;
   modalidad: 'DOMICILIO' | 'TALLER'; inicio_en: string; ubicacion_servicio: string;
   estado: 'PENDIENTE' | 'ACEPTADA' | 'PAGADA' | 'EN_CAMINO' | 'EN_CURSO' | 'LISTO' | 'COMPLETADA' | 'RECHAZADA' | 'CANCELADA';
+  motivo_cancelacion?: string | null;
+  creado_en?: string;
+  actualizado_en?: string;
 };
+export type BookingStatus = Booking['estado'];
+export type BookingAction = 'aceptar' | 'rechazar' | 'en-camino' | 'iniciar' | 'listo';
 export type BookingInput = { servicio_id: string; inicio_en: string; direccion_servicio?: string };
 const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, ''), timeout: 15000,
 });
 function requireConnection() {
   if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+}
+export type BookingFilters = { estado?: BookingStatus; desde?: string; hasta?: string; agenda?: boolean; offset?: number };
+export const BOOKING_PAGE_SIZE = 20;
+export async function getBookings(token: string, filters: BookingFilters = {}, signal?: AbortSignal): Promise<Booking[]> {
+  requireConnection();
+  const { data } = await api.get<Booking[]>('/solicitudes', {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+    params: { estado: filters.estado, desde: filters.desde, hasta: filters.hasta, agenda: filters.agenda,
+      limit: BOOKING_PAGE_SIZE, offset: filters.offset ?? 0 },
+  });
+  return data;
+}
+export async function getBooking(token: string, bookingId: string, signal?: AbortSignal): Promise<Booking> {
+  requireConnection();
+  const { data } = await api.get<Booking>(`/solicitudes/${encodeURIComponent(bookingId)}`, {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  return data;
+}
+export async function changeBooking(token: string, bookingId: string, action: BookingAction): Promise<Booking> {
+  requireConnection();
+  if (!['aceptar', 'rechazar', 'en-camino', 'iniciar', 'listo'].includes(action)) throw new Error('Acción no permitida.');
+  const { data } = await api.post<Booking>(`/solicitudes/${encodeURIComponent(bookingId)}/${action}`, undefined, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+}
+export async function cancelBooking(token: string, bookingId: string, reason: string): Promise<Booking> {
+  requireConnection();
+  const { data } = await api.post<Booking>(`/solicitudes/${encodeURIComponent(bookingId)}/cancelar`, { motivo: reason.trim() }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+}
+export type ConfirmationCode = { codigo: string; expira_en: string };
+export async function getConfirmationCode(token: string, bookingId: string): Promise<ConfirmationCode> {
+  requireConnection();
+  const { data } = await api.post<ConfirmationCode>(`/solicitudes/${encodeURIComponent(bookingId)}/codigo-confirmacion`, undefined, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+}
+export async function completeBooking(token: string, bookingId: string, code: string): Promise<Booking> {
+  requireConnection();
+  const { data } = await api.post<Booking>(`/solicitudes/${encodeURIComponent(bookingId)}/completar`, { codigo: code.trim() }, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data;
+}
+export function bookingOperationError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) return 'No recibimos confirmación. Actualiza la solicitud para comprobar su estado antes de repetir la acción.';
+    switch (error.response.status) {
+      case 401: return 'Tu sesión venció. Inicia sesión para continuar.';
+      case 403: return 'No tienes permiso para realizar esta acción en la solicitud.';
+      case 404: return 'Solicitud no encontrada o fuera de tu cuenta.';
+      case 409: return error.response.data?.detail === 'Código incorrecto, vencido o bloqueado; consulta al trabajador'
+        ? 'El código es incorrecto, venció o está bloqueado. Consulta al trabajador.'
+        : 'El estado o el horario cambió y esta acción ya no está disponible. Actualiza la solicitud.';
+      case 422: return 'Revisa los datos, el motivo o el código ingresado.';
+      case 503: return 'Las solicitudes no están disponibles todavía. Inténtalo más tarde.';
+      default: return 'No pudimos consultar o actualizar la solicitud. Inténtalo nuevamente.';
+    }
+  }
+  return 'No pudimos consultar o actualizar la solicitud. Inténtalo nuevamente.';
 }
 export async function getAvailability(serviceId: string, signal?: AbortSignal): Promise<Availability[]> {
   requireConnection();

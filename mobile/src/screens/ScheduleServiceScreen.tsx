@@ -81,6 +81,7 @@ export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string
           <Text style={styles.text}>{booking.ubicacion_servicio}</Text>
           <Text selectable style={styles.hint}>N.º de solicitud: {booking.id}</Text>
           <Text style={styles.hint}>No se realizó ningún cobro.</Text>
+          <Text style={styles.hint}>Puedes consultar el avance en la pestaña Solicitudes.</Text>
         </View> : <>
           {loading && <View style={styles.state}><ActivityIndicator color="#087D56" /><Text style={styles.hint}>Consultando horarios…</Text></View>}
           {!!loadError && <View style={styles.card}><Text accessibilityRole="alert" style={styles.error}>{loadError}</Text>

@@ -190,7 +190,7 @@ export function WorkerHomeScreen({
         <Ionicons name="bar-chart-outline" size={30} color="#82918B" />
         <View>
           <Text style={styles.infoTitle}>Estadísticas de trabajo</Text>
-          <Text style={styles.hint}>Ganancias, solicitudes y citas · Próximamente</Text>
+          <Text style={styles.hint}>Ganancias · Próximamente</Text>
         </View>
       </View>
 

@@ -273,3 +273,22 @@ y sus instantáneas. La publicación desaparece del catálogo, mapa e inicio, y 
 un cupo. No requiere nuevas migraciones. Probar guardar/cancelar edición, editar
 con cinco servicios activos, completar ubicación antigua y cancelar/confirmar
 eliminación; comprobar que otro trabajador no pueda modificar la publicación.
+
+SCRUM-49 y SCRUM-50: Solicitudes del cliente y del trabajador muestran listas
+paginadas con filtros por estado, actualización al enfocar y botón Actualizar.
+El detalle muestra los datos guardados al reservar y un seguimiento por modalidad:
+DOMICILIO incluye En camino; TALLER incluye Listo para retirar. Rechazadas y
+canceladas muestran su resultado y motivo disponible. No se inventan fechas de
+transiciones: solo se muestra la última actualización disponible.
+El trabajador acepta/rechaza solicitudes pendientes y realiza las acciones
+permitidas por el estado. Ambos participantes pueden cancelar antes del pago
+con motivo. Para finalizar, el trabajador genera el código y el cliente lo confirma.
+Agenda conserva la gestión de disponibilidad y ofrece Ver reservas por fecha
+local, con calendario y formato DD-MM-AAAA; incluye aceptadas y posteriores.
+No requiere otra migración. ACEPTADA queda pendiente de pago: la app no simula
+ni ofrece marcar PAGADA manualmente; depende de la futura integración de pagos.
+Probar con dos cuentas: enviar, aceptar/rechazar, volver a la lista, actualizar
+el cliente, revisar fecha en Agenda y cancelar con motivo. Comprobar conflictos
+de solicitudes superpuestas, filtros vacíos, carga de más páginas, pérdida de
+conexión y acceso a solicitudes de terceros. Las pruebas automáticas de estados
+y HTTP no reemplazan la revisión en Expo Go con fuentes grandes.

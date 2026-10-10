@@ -9,7 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 import { buildAvailabilityInput, formatBookingDate, localBookingFields } from '../services/bookingForm';
 import { BookingCalendar } from '../components/BookingCalendar';
 
-export function WorkerAgendaScreen() {
+export function WorkerAgendaScreen({ onReservations }: { onReservations?: () => void }) {
   const { withAccessToken } = useAuth();
   const request = useRef(withAccessToken); request.current = withAccessToken;
   const mutating = useRef(false);
@@ -96,6 +96,9 @@ export function WorkerAgendaScreen() {
         <Text style={styles.eyebrow}>Panel del trabajador</Text>
         <Text accessibilityRole="header" style={styles.title}>Mi agenda</Text>
         <Text style={styles.hint}>Publica los horarios en que puedes atender cada servicio.</Text>
+        {onReservations && <Pressable accessibilityRole="button" onPress={onReservations} style={styles.card}>
+          <Text style={styles.title}>Ver reservas</Text><Text style={styles.hint}>Consulta tus servicios aceptados por fecha.</Text>
+        </Pressable>}
         {loading ? <ActivityIndicator style={styles.state} color="#087A57" /> : servicesError ? <View style={styles.card}>
           <Text accessibilityRole="alert" style={styles.error}>{servicesError}</Text>
           <Pressable accessibilityRole="button" onPress={() => setRefresh((n) => n + 1)} style={styles.action}><Text style={styles.link}>Reintentar</Text></Pressable>

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import type { ComponentProps } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
 import type { WorkerVerification } from '../api/workerVerification';
 import { ClientHomeScreen } from '../screens/ClientHomeScreen';
@@ -15,6 +15,33 @@ import { WorkerCertificationsScreen } from '../screens/WorkerCertificationsScree
 import { ClientMapScreen } from '../screens/ClientMapScreen';
 import { ScheduleServiceScreen } from '../screens/ScheduleServiceScreen';
 import { WorkerAgendaScreen } from '../screens/WorkerAgendaScreen';
+import { BookingRequestsScreen } from '../screens/BookingRequestsScreen';
+import { BookingTrackingScreen } from '../screens/BookingTrackingScreen';
+import type { BookingRole } from '../services/bookingTracking';
+
+type RequestsStackParams = { BookingList: undefined; BookingTracking: { bookingId: string } };
+const RequestsStack = createNativeStackNavigator<RequestsStackParams>();
+function RequestsNavigator({ role }: { role: BookingRole }) {
+  return <RequestsStack.Navigator screenOptions={{ headerShown: false }}>
+    <RequestsStack.Screen name="BookingList">{({ navigation }) => <BookingRequestsScreen role={role}
+      onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })} />}</RequestsStack.Screen>
+    <RequestsStack.Screen name="BookingTracking">{({ navigation, route }) => <BookingTrackingScreen role={role}
+      bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</RequestsStack.Screen>
+  </RequestsStack.Navigator>;
+}
+function WorkerAgendaHome({ onBooking }: { onBooking: (id: string) => void }) {
+  const [reservations, setReservations] = useState(false);
+  return reservations ? <BookingRequestsScreen role="TRABAJADOR" agenda onBooking={onBooking} onAvailability={() => setReservations(false)} />
+    : <WorkerAgendaScreen onReservations={() => setReservations(true)} />;
+}
+function WorkerAgendaNavigator() {
+  return <RequestsStack.Navigator screenOptions={{ headerShown: false }}>
+    <RequestsStack.Screen name="BookingList">{({ navigation }) => <WorkerAgendaHome
+      onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })} />}</RequestsStack.Screen>
+    <RequestsStack.Screen name="BookingTracking">{({ navigation, route }) => <BookingTrackingScreen role="TRABAJADOR"
+      bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</RequestsStack.Screen>
+  </RequestsStack.Navigator>;
+}
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -143,7 +170,7 @@ export function ClientMainTabs() {
     <ClientTab.Screen name="ClientRequests" options={{
       title: 'Solicitudes', tabBarIcon: tabIcon('list', 'list-outline'),
     }}>
-      {() => <ComingSoonScreen title="Solicitudes" />}
+      {() => <RequestsNavigator role="CLIENTE" />}
     </ClientTab.Screen>
     <ClientTab.Screen name="ClientProfile" component={ProfileScreen} options={{
       title: 'Perfil', tabBarIcon: tabIcon('person', 'person-outline'),
@@ -198,12 +225,12 @@ export function WorkerMainTabs({
     <WorkerTab.Screen name="WorkerAgenda" options={{
       title: 'Agenda', tabBarIcon: tabIcon('calendar', 'calendar-outline'),
     }}>
-      {() => <WorkerAgendaScreen />}
+      {() => <WorkerAgendaNavigator />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerRequests" options={{
       title: 'Solicitudes', tabBarIcon: tabIcon('document-text', 'document-text-outline'),
     }}>
-      {() => <ComingSoonScreen title="Solicitudes" />}
+      {() => <RequestsNavigator role="TRABAJADOR" />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerEarnings" options={{
       title: 'Ganancias', tabBarIcon: tabIcon('wallet', 'wallet-outline'),

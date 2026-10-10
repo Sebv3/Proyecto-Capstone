@@ -1,9 +1,10 @@
 import secrets
+from datetime import UTC
 from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import TypeAdapter
+from pydantic import AwareDatetime, TypeAdapter
 
 from app.core.security import AuthGateway, BearerToken, get_current_user
 from app.schemas.booking import (
@@ -122,11 +123,18 @@ async def create_booking(
 async def list_bookings(
     user: CurrentUser, credentials: BearerToken, gateway: AuthGateway,
     estado: BookingStatus | None = None,
+    desde: AwareDatetime | None = None,
+    hasta: AwareDatetime | None = None,
+    agenda: bool = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[BookingResponse]:
     if user.rol not in (UserRole.CLIENTE, UserRole.TRABAJADOR):
         raise HTTPException(403, "Esta operación requiere un participante")
+    if desde is not None and hasta is not None and hasta <= desde:
+        raise HTTPException(422, "El término del rango debe ser posterior al inicio")
+    if agenda:
+        _role(user, UserRole.TRABAJADOR)
     field = "cliente_id" if user.rol == UserRole.CLIENTE else "trabajador_id"
     params = {
         field: f"eq.{user.id}", "select": BOOKING_FIELDS, "order": "inicio_en.asc,id.asc",
@@ -134,6 +142,18 @@ async def list_bookings(
     }
     if estado is not None:
         params["estado"] = f"eq.{estado.value}"
+    if agenda:
+        states = "ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO,COMPLETADA"
+        params["and"] = f"(estado.in.({states}))"
+    ranges = []
+    if desde is not None:
+        ranges.append(f"inicio_en.gte.{desde.astimezone(UTC).isoformat()}")
+    if hasta is not None:
+        ranges.append(f"inicio_en.lt.{hasta.astimezone(UTC).isoformat()}")
+    if ranges:
+        if agenda:
+            ranges.insert(0, f"estado.in.({states})")
+        params["and"] = f"({','.join(ranges)})"
     response = await gateway.request(
         "GET", "/rest/v1/solicitudes", params=params, access_token=_token(credentials)
     )

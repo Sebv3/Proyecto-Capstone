@@ -179,3 +179,12 @@ en esos campos. Las ofertas anteriores pueden desactivarse sin ubicación; no
 aparecen en el mapa hasta completar su punto. El catálogo y detalle incluyen
 ubicación pública y radio. Nunca se reciben coordenadas del cliente para calcular
 proximidad: esa comparación se hace en el móvil.
+
+SCRUM-49/50 reutilizan las operaciones existentes de solicitudes. El listado
+`GET /api/v1/solicitudes` permite `estado`, `limit`, `offset`, `desde` (incluido)
+y `hasta` (excluido), con fechas ISO que incluyan zona horaria. `agenda=true`
+requiere trabajador y limita a ACEPTADA, PAGADA, EN_CAMINO, EN_CURSO, LISTO y
+COMPLETADA, siempre filtradas por el participante autenticado y protegidas por RLS.
+El móvil convierte el día local a un rango UTC y sigue usando las instantáneas
+de precio, dirección y servicio guardadas al reservar. No añade migraciones.
+La transición de ACEPTADA a PAGADA continúa reservada al proceso de pago.

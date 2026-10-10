@@ -71,3 +71,9 @@ export function getBookingTimes(date: string, blocks: Availability[], minutes: n
   }
   return [...result].sort();
 }
+export function bookingDayRange(date: string): { desde: string; hasta: string } | null {
+  const day = parseBookingTime(date, '12:00');
+  if (!day) return null;
+  return { desde: new Date(day.getFullYear(), day.getMonth(), day.getDate()).toISOString(),
+    hasta: new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).toISOString() };
+}

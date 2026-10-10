@@ -83,6 +83,37 @@ def test_listing_is_scoped_and_paginated(make_client, user, field):
     assert response.status_code == 200
 
 
+def test_agenda_filters_confirmed_reservations_in_utc_day_range(make_client):
+    def handler(request):
+        assert request.url.params["trabajador_id"] == f"eq.{WORKER_ID}"
+        assert request.url.params["and"] == (
+            "(estado.in.(ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO,COMPLETADA),"
+            "inicio_en.gte.2030-01-10T03:00:00+00:00,"
+            "inicio_en.lt.2030-01-11T03:00:00+00:00)"
+        )
+        return httpx.Response(200, json=[{**BOOKING, "estado": "ACEPTADA"}])
+
+    result = make_client(handler, WORKER).get("/api/v1/solicitudes", headers=HEADERS, params={
+        "agenda": "true", "desde": "2030-01-10T00:00:00-03:00",
+        "hasta": "2030-01-11T00:00:00-03:00",
+    })
+    assert result.status_code == 200
+
+
+@pytest.mark.parametrize("params,status", [
+    ({"agenda": "true"}, 403),
+    ({"desde": "2030-01-10T00:00:00"}, 422),
+    ({"desde": "2030-01-10T00:00:00Z", "hasta": "2030-01-10T00:00:00Z"}, 422),
+    ({"desde": "2030-01-11T00:00:00Z", "hasta": "2030-01-10T00:00:00Z"}, 422),
+])
+def test_agenda_rejects_client_and_invalid_date_ranges(make_client, params, status):
+    def handler(request):
+        pytest.fail("An invalid range or unauthorized agenda must not reach storage")
+
+    result = make_client(handler).get("/api/v1/solicitudes", headers=HEADERS, params=params)
+    assert result.status_code == status
+
+
 @pytest.mark.parametrize("action,target,current,modality", [
     ("aceptar", "ACEPTADA", "PENDIENTE", "DOMICILIO"),
     ("rechazar", "RECHAZADA", "PENDIENTE", "TALLER"),
