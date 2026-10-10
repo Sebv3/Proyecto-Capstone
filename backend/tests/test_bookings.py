@@ -227,7 +227,8 @@ def test_client_completion_validates_private_code(make_client, payload, status):
 
 
 @pytest.mark.parametrize("code,status", [
-    ("P0002", 404), ("42501", 403), ("40001", 409), ("22023", 422), ("PGRST202", 503),
+    ("P0002", 404), ("42501", 403), ("PT409", 409), ("40001", 409),
+    ("22023", 422), ("PGRST202", 503),
 ])
 def test_database_errors_are_controlled(make_client, code, status):
     response = make_client(

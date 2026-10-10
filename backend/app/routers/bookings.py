@@ -48,7 +48,7 @@ def _error(response: Any) -> None:
         raise HTTPException(404, "Solicitud, servicio o bloque no disponible")
     if code == "42501" or response.status_code in (401, 403):
         raise HTTPException(403, "No tienes permiso para realizar esta operación")
-    if code in ("40001", "23P01", "23505"):
+    if code in ("PT409", "40001", "23P01", "23505"):
         raise HTTPException(
             409, "El horario o estado ya no está disponible; actualiza la solicitud"
         )

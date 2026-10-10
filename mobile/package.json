@@ -37,7 +37,7 @@
     "test:catalog": "node --experimental-strip-types --test tests/catalog.test.mjs",
     "test:coverage": "node --experimental-strip-types --test tests/coverage.test.mjs",
     "test:certifications": "node --experimental-strip-types --test tests/certifications.test.mjs",
-    "test:bookings": "node --experimental-strip-types --test tests/bookings.test.mjs",
+    "test:bookings": "node --experimental-strip-types --test tests/bookings.test.mjs tests/bookingTracking.test.mjs tests/bookingTimezones.test.mjs",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

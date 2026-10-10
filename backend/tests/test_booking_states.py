@@ -99,3 +99,36 @@ def test_system_processes_cannot_cancel_as_participants(actor):
 def test_repeated_state_changes_are_rejected(state):
     with pytest.raises(ValueError):
         transition_booking(state, state, M.DOMICILIO, A.TRABAJADOR)
+
+
+@pytest.mark.parametrize("modality", list(M))
+@pytest.mark.parametrize("actor", list(A))
+def test_entire_transition_matrix_has_no_unlisted_paths(modality, actor):
+    permitted = {(start, end) for mode, start, end, owner in VALID_TRANSITIONS
+                 if mode == modality and owner == actor}
+    if actor in (A.CLIENTE, A.TRABAJADOR):
+        permitted.update({(S.PENDIENTE, S.CANCELADA), (S.ACEPTADA, S.CANCELADA)})
+    for start in S:
+        for end in S:
+            reason = "Cambio de planes" if end == S.CANCELADA else None
+            if (start, end) in permitted:
+                assert transition_booking(start, end, modality, actor,
+                                          cancellation_reason=reason) == end
+            else:
+                with pytest.raises(ValueError):
+                    transition_booking(start, end, modality, actor, cancellation_reason=reason)
+
+
+@pytest.mark.parametrize("field", ["current", "target", "modality", "actor"])
+def test_unrecognized_state_modality_or_actor_is_never_accepted(field):
+    values = {"current": S.PENDIENTE, "target": S.ACEPTADA,
+              "modality": M.DOMICILIO, "actor": A.TRABAJADOR}
+    values[field] = "INVALID"
+    with pytest.raises(ValueError):
+        transition_booking(**values)
+
+
+@pytest.mark.parametrize("reason", ["abc", "x" * 500])
+def test_cancellation_accepts_both_reason_length_boundaries(reason):
+    assert transition_booking(S.ACEPTADA, S.CANCELADA, M.TALLER, A.CLIENTE,
+                              cancellation_reason=reason) == S.CANCELADA
