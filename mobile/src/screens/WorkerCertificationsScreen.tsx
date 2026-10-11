@@ -13,13 +13,17 @@ import { blurFocusedElementOnWeb } from '../navigation/webFocus';
 import { CERTIFICATION_MIME_TYPES, certificationFileError } from '../services/certificationRules';
 
 export function WorkerCertificationsScreen({ navigation, route }: NativeStackScreenProps<WorkerHomeStackParamList, 'WorkerCertifications'>) {
+  return <WorkerCertificationsContent initialCategoryId={route.params?.categoryId} onBack={() => navigation.goBack()} />;
+}
+
+export function WorkerCertificationsContent({ initialCategoryId, onBack }: { initialCategoryId?: string; onBack: () => void }) {
   const { withAccessToken } = useAuth();
   const request = useRef(withAccessToken);
   request.current = withAccessToken;
   const sending = useRef(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [certifications, setCertifications] = useState<WorkerCertification[]>([]);
-  const [categoryId, setCategoryId] = useState(route.params?.categoryId ?? '');
+  const [categoryId, setCategoryId] = useState(initialCategoryId ?? '');
   const [name, setName] = useState('');
   const [asset, setAsset] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,7 +83,7 @@ export function WorkerCertificationsScreen({ navigation, route }: NativeStackScr
   return <SafeAreaView style={styles.page}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Pressable accessibilityRole="button" disabled={busy} onPress={() => { blurFocusedElementOnWeb(); navigation.goBack(); }} style={styles.linkButton}>
+        <Pressable accessibilityRole="button" disabled={busy} onPress={() => { blurFocusedElementOnWeb(); onBack(); }} style={styles.linkButton}>
           <Ionicons name="arrow-back" size={22} color="#256047" /><Text style={styles.link}>Volver</Text>
         </Pressable>
         <Text accessibilityRole="header" style={styles.title}>Subir certificaciones</Text>

@@ -13,6 +13,7 @@ from app.routers.catalog import router as catalog_router
 from app.routers.client_profiles import router as client_profiles_router
 from app.routers.locations import router as locations_router
 from app.routers.locations import service_map_router
+from app.routers.notifications import router as notifications_router
 from app.routers.worker_certifications import router as worker_certifications_router
 from app.routers.worker_role_requests import router as worker_role_requests_router
 from app.routers.worker_services import router as worker_services_router
@@ -40,6 +41,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(notifications_router)
 app.include_router(catalog_router)
 app.include_router(locations_router)
 app.include_router(service_map_router)

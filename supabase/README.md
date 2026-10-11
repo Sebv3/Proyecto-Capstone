@@ -1,5 +1,30 @@
 # Supabase - ServiMatch
 
+## Notificaciones dentro de la app
+
+`20261011120000_in_app_notifications.sql` crea la tabla privada `notificaciones`,
+su lectura limitada al destinatario activo y la función `leer_notificaciones` para
+marcar una o todas como leídas sin permitir insertar, eliminar o editar mensajes.
+Los triggers generan avisos ante nuevas solicitudes y cambios reales de estado de
+solicitudes, verificaciones, certificaciones y solicitudes de rol. También se ejecutan
+cuando una revisión autorizada se realiza mediante SQL. El actor de un cambio de
+solicitud no recibe un aviso por su propia acción; la contraparte sí. Guardar otra
+vez el mismo estado no crea otro aviso. No se generan avisos retroactivos.
+
+La campana consulta los avisos sin leer al entrar y cada 30 segundos mientras la
+pantalla está activa. La pantalla muestra 20 avisos por página, permite actualizar,
+marcar leídos y abrir la solicitud, certificación o perfil con su revisión. También
+hay campana en el formulario de identidad para trabajadores rechazados. Son avisos
+dentro de la app compatibles con Expo Go, sin servicios push ni permisos del teléfono.
+
+Prueba en Expo Go: un cliente envía una solicitud nueva; el trabajador vuelve a Inicio
+y abre la campana. Al aceptar o rechazar, el cliente recibe el aviso. Marcarlo como leído
+debe quitar el punto rojo cuando no queden pendientes. Cancelar debe avisar a la
+contraparte. Aprobar/rechazar una revisión con los procedimientos existentes debe
+crear un aviso al dueño; abrir una certificación selecciona su categoría. Revisar que
+otra cuenta no pueda consultar ni marcar estos avisos. Para probar SQL en una base
+vacía y desechable, ejecutar `tests/notifications_rules.sql`; nunca en Supabase remoto.
+
 `20261010160000_worker_owned_workshop_commune.sql` añade comuna_taller_id a las
 publicaciones. El trabajador debe completar la comuna al crear/editar un taller;
 la base valida la modalidad y comuna activa. El catálogo la expone y crear_solicitud

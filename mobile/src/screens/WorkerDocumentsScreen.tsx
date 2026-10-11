@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { submitWorkerVerification, workerErrorMessage, type VerificationImages, type WorkerVerification } from '../api/workerVerification';
 import { useAuth } from '../auth/AuthContext';
+import { NotificationBell } from '../components/NotificationBell';
 
 type ImageField = keyof VerificationImages;
 const fields: { key: ImageField; label: string }[] = [
@@ -62,7 +63,7 @@ export function WorkerDocumentsScreen({
 
   return <SafeAreaView style={styles.page}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.brand}>ServiMatch</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><Text style={styles.brand}>ServiMatch</Text><NotificationBell /></View>
       <Text accessibilityRole="header" style={styles.title}>
         {verification?.estado === 'RECHAZADA' ? 'Reenvía tus documentos' : 'Verifica tu identidad'}
       </Text>

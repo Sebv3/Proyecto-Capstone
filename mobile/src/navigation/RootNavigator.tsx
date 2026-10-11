@@ -17,6 +17,9 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { RegistrationRoleScreen } from '../screens/RegistrationRoleScreen';
 import { SessionLoadingScreen } from '../screens/SessionLoadingScreen';
 import { WorkerDocumentsScreen } from '../screens/WorkerDocumentsScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { BookingTrackingScreen } from '../screens/BookingTrackingScreen';
+import { WorkerCertificationsContent } from '../screens/WorkerCertificationsScreen';
 import { ClientMainTabs, WorkerMainTabs } from './MainTabNavigators';
 
 export type RootStackParamList = {
@@ -29,6 +32,10 @@ export type RootStackParamList = {
   WorkerMain: undefined;
   ClientMain: undefined;
   EmailConfirmed: undefined;
+  Notifications: undefined;
+  NotificationBooking: { bookingId: string };
+  NotificationCertifications: { categoryId?: string };
+  NotificationProfile: undefined;
 };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const linking = {
@@ -145,6 +152,17 @@ export function RootNavigator() {
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         }} />}
       </Stack.Screen>
+      {!!user && <>
+        <Stack.Screen name="Notifications">{({ navigation }) => <NotificationsScreen onBack={() => navigation.goBack()} onOpen={(item) => {
+          if (item.tipo === 'SOLICITUD') navigation.navigate('NotificationBooking', { bookingId: item.referencia_id });
+          else if (item.tipo === 'CERTIFICACION' && user.rol === 'TRABAJADOR') navigation.navigate('NotificationCertifications', { categoryId: item.categoria_id ?? undefined });
+          else navigation.navigate('NotificationProfile');
+        }} />}</Stack.Screen>
+        <Stack.Screen name="NotificationBooking">{({ navigation, route }) => <BookingTrackingScreen
+          role={user.rol === 'TRABAJADOR' ? 'TRABAJADOR' : 'CLIENTE'} bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</Stack.Screen>
+        <Stack.Screen name="NotificationCertifications">{({ navigation, route }) => <WorkerCertificationsContent initialCategoryId={route.params.categoryId} onBack={() => navigation.goBack()} />}</Stack.Screen>
+        <Stack.Screen name="NotificationProfile">{({ navigation }) => <ProfileScreen onBack={() => navigation.goBack()} onWorkerProfileCreated={refresh} />}</Stack.Screen>
+      </>}
     </Stack.Navigator>
   </NavigationContainer>;
 }

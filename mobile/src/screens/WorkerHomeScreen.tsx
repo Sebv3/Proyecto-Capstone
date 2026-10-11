@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { NotificationBell } from '../components/NotificationBell';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -87,10 +88,7 @@ export function WorkerHomeScreen({
           <Text style={styles.eyebrow}>Panel del trabajador</Text>
           <Text accessibilityRole="header" style={styles.title}>Hola, {user?.nombre ?? 'Trabajador'}</Text>
         </View>
-        <View accessibilityLabel="Notificaciones próximamente" style={styles.notification}>
-          <Ionicons name="notifications-outline" size={23} color="#14251F" />
-          <View style={styles.notificationDot} />
-        </View>
+        <NotificationBell />
       </View>
 
       {!!(publishedServiceName || updatedServiceName) && <View style={styles.successCard}>
@@ -250,8 +248,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
   eyebrow: { color: '#66756F', fontSize: 13, fontWeight: '600' },
   title: { color: '#14251F', fontSize: 23, fontWeight: '900', marginTop: 2 },
-  notification: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE6E1', alignItems: 'center', justifyContent: 'center' },
-  notificationDot: { position: 'absolute', top: 7, right: 8, width: 7, height: 7, borderRadius: 4, backgroundColor: '#E33E3E' },
   summaryCard: { padding: 18, backgroundColor: '#087A57', borderRadius: 20 },
   summaryLabel: { color: '#DDF2E9', fontSize: 13, fontWeight: '700' },
   summaryValue: { color: '#FFFFFF', fontSize: 29, fontWeight: '900', marginTop: 10 },
