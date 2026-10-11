@@ -90,6 +90,51 @@ def test_listing_is_scoped_and_paginated(make_client, user, field):
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize("user,field", [(CLIENT, "cliente_id"), (WORKER, "trabajador_id")])
+@pytest.mark.parametrize("with_dates", [False, True])
+def test_all_excludes_cancelled_and_rejected_before_pagination(
+    make_client, user, field, with_dates,
+):
+    def handler(request):
+        assert request.url.params[field] == f"eq.{user['id']}"
+        assert request.url.params["estado"] == "not.in.(CANCELADA,RECHAZADA)"
+        assert request.url.params["limit"] == "20"
+        assert request.url.params["offset"] == "20"
+        if with_dates:
+            assert request.url.params["and"] == (
+                "(inicio_en.gte.2030-01-10T00:00:00+00:00,"
+                "inicio_en.lt.2030-01-11T00:00:00+00:00)"
+            )
+        return httpx.Response(200, json=[{**BOOKING, "estado": "COMPLETADA"}])
+
+    params = {"limit": 20, "offset": 20}
+    if with_dates:
+        params.update(desde="2030-01-10T00:00:00Z", hasta="2030-01-11T00:00:00Z")
+    result = make_client(handler, user).get(
+        "/api/v1/solicitudes", headers=HEADERS, params=params,
+    )
+    assert result.status_code == 200
+    assert result.json()[0]["estado"] == "COMPLETADA"
+
+
+@pytest.mark.parametrize("user,field", [(CLIENT, "cliente_id"), (WORKER, "trabajador_id")])
+@pytest.mark.parametrize("status", ["CANCELADA", "RECHAZADA"])
+def test_history_filters_still_return_cancelled_and_rejected(make_client, user, field, status):
+    def handler(request):
+        assert request.url.params[field] == f"eq.{user['id']}"
+        assert request.url.params["estado"] == f"eq.{status}"
+        return httpx.Response(200, json=[{
+            **BOOKING, "estado": status,
+            "motivo_cancelacion": "Cambio de planes" if status == "CANCELADA" else None,
+        }])
+
+    result = make_client(handler, user).get(
+        "/api/v1/solicitudes", headers=HEADERS, params={"estado": status},
+    )
+    assert result.status_code == 200
+    assert result.json()[0]["estado"] == status
+
+
 def test_upcoming_uses_server_time_and_excludes_finished_bookings_before_limit(make_client):
     before = datetime.now(UTC)
 

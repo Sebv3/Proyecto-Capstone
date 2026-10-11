@@ -144,6 +144,8 @@ async def list_bookings(
     }
     if estado is not None:
         params["estado"] = f"eq.{estado.value}"
+    elif not agenda and not proximas:
+        params["estado"] = "not.in.(CANCELADA,RECHAZADA)"
     if agenda or proximas:
         states = "ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO,COMPLETADA"
         if proximas:
