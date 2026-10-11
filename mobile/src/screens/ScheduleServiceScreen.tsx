@@ -123,7 +123,7 @@ export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string
               <View style={styles.row}><Ionicons name="location-outline" size={17} color="#087D56" /><Text style={[styles.label, styles.green]}>{service.modalidad === 'DOMICILIO' ? 'Dirección del servicio' : 'Dirección del taller'}</Text></View>
               {service.modalidad === 'DOMICILIO' ? <>
                 <TextInput accessibilityLabel="Dirección de atención" editable={!saving} value={address} onChangeText={setAddress} maxLength={240}
-                  placeholder="Calle, número y departamento" style={styles.input} />
+                  placeholder="Calle, número o departamento" style={styles.input} />
                 <Text style={styles.hint}>Se comparte con el trabajador de esta solicitud.</Text>
               </> : <Text style={styles.text}>{service.ubicacion_publica ?? 'El trabajador todavía no publicó la dirección del taller.'}</Text>}
               {service.modalidad === 'DOMICILIO' ? <>
