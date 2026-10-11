@@ -8,6 +8,7 @@ function positiveInteger(label: string, maximum: number) {
 }
 
 export const serviceSchema = z.object({
+  comuna_taller_id: z.string().default(''),
   categoria_id: z.uuid({ error: 'Selecciona una categoría.' }),
   nombre: z.string().trim().min(3, 'Ingresa al menos tres caracteres.').max(120, 'Máximo 120 caracteres.'),
   descripcion: z.string().trim().min(10, 'Describe el servicio con al menos diez caracteres.')
@@ -20,11 +21,15 @@ export const serviceSchema = z.object({
   longitud: z.number({ error: 'Selecciona la ubicación en el mapa.' }).min(-180).max(180),
   radio_cobertura_km: z.string().trim(),
 }).superRefine((value, context) => {
+  if (value.modalidad === 'TALLER' && !z.uuid().safeParse(value.comuna_taller_id).success) {
+    context.addIssue({ code: 'custom', path: ['comuna_taller_id'], message: 'Selecciona la comuna del taller.' });
+  }
   if (value.modalidad === 'DOMICILIO' && (!/^\d+$/.test(value.radio_cobertura_km)
     || Number(value.radio_cobertura_km) < 1 || Number(value.radio_cobertura_km) > 100)) {
     context.addIssue({ code: 'custom', path: ['radio_cobertura_km'], message: 'Indica una cobertura entre 1 y 100 km.' });
   }
-}).transform((value) => ({ ...value, radio_cobertura_km: value.modalidad === 'DOMICILIO' ? Number(value.radio_cobertura_km) : null }));
+}).transform((value) => ({ ...value, comuna_taller_id: value.modalidad === 'TALLER' ? value.comuna_taller_id : null,
+  radio_cobertura_km: value.modalidad === 'DOMICILIO' ? Number(value.radio_cobertura_km) : null }));
 
 export type ServiceFormValues = z.input<typeof serviceSchema>;
 export type ServiceCreateValues = z.output<typeof serviceSchema>;

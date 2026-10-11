@@ -78,6 +78,7 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
             <Text style={styles.text}>{formatBookingDate(booking.inicio_en)}</Text>
             <Text style={styles.hint}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'} · {booking.duracion_estimada_minutos} min</Text>
             <Text style={styles.text}>{booking.ubicacion_servicio}</Text>
+            <Text style={styles.text}>{booking.cliente_nombre ?? 'Cliente'} · {booking.comuna_servicio_nombre ?? 'Comuna por confirmar'}</Text>
             <View style={styles.between}><Text style={styles.label}>Precio base acordado</Text><Text style={styles.value}>{formatCatalogPrice(booking.precio_base)}</Text></View>
             <Text selectable style={styles.hint}>N.º de solicitud: {booking.id}</Text>
             {booking.actualizado_en && <Text style={styles.hint}>Última actualización: {formatBookingDate(booking.actualizado_en)}</Text>}

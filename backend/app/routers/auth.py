@@ -8,6 +8,8 @@ from app.core.security import AuthGateway, get_current_user
 from app.schemas.auth import (
     LoginRequest,
     MeResponse,
+    PasswordRecoveryRequest,
+    PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
     RegisterResponse,
@@ -131,3 +133,43 @@ async def refresh(body: RefreshRequest, gateway: AuthGateway) -> SessionResponse
 @router.get("/me", response_model=MeResponse)
 async def me(current_user: Annotated[User, Depends(get_current_user)]) -> MeResponse:
     return MeResponse(user=current_user)
+
+
+@router.post("/password-recovery")
+async def password_recovery(body: PasswordRecoveryRequest, gateway: AuthGateway) -> dict[str, str]:
+    response = await gateway.request("POST", "/auth/v1/recover", json={"email": body.email})
+    _auth_error(response.status_code, "No se pudo enviar el correo de recuperación")
+    # Use the same message for existing and unknown accounts.
+    return {"message": "Si el correo está registrado, recibirás un código de recuperación."}
+
+
+@router.post("/password-reset")
+async def password_reset(body: PasswordResetRequest, gateway: AuthGateway) -> dict[str, str]:
+    verified = await gateway.request(
+        "POST", "/auth/v1/verify",
+        json={"email": body.email, "token": body.code, "type": "recovery"},
+    )
+    _auth_error(verified.status_code, "El código es incorrecto o venció. Solicita uno nuevo.")
+    try:
+        session = _session(verified.json())
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Respuesta de recuperación inválida") from exc
+    try:
+        updated = await gateway.request(
+            "PUT", "/auth/v1/user", access_token=session.access_token,
+            json={"password": body.password},
+        )
+        _auth_error(
+            updated.status_code,
+            "No se pudo actualizar la contraseña. Usa una contraseña nueva y solicita otro código.",
+        )
+    finally:
+        # Do not retain a login session created just for password recovery.
+        try:
+            await gateway.request(
+                "POST", "/auth/v1/logout", params={"scope": "local"},
+                access_token=session.access_token,
+            )
+        except HTTPException:
+            pass
+    return {"message": "Contraseña actualizada. Ya puedes iniciar sesión."}

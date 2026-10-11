@@ -94,6 +94,7 @@ def test_creates_own_service(make_client) -> None:
         body = json.loads(request.content)
         assert body == {
             "trabajador_id": WORKER_ID,
+            "comuna_taller_id": None,
             "categoria_id": CATEGORY_ID,
             "nombre": "Apertura de puerta",
             "descripcion": "Apertura de puerta domiciliaria sin destruir la chapa.",
@@ -180,7 +181,9 @@ def test_switch_to_workshop_accepts_null_radius_and_preserves_point(make_client)
             return authenticated
         if request.method == "GET":
             return httpx.Response(200, json=[SERVICE])
-        assert json.loads(request.content) == {"modalidad": "TALLER", "radio_cobertura_km": None}
+        assert json.loads(request.content) == {
+            "modalidad": "TALLER", "radio_cobertura_km": None, "comuna_taller_id": CATEGORY_ID,
+        }
         return httpx.Response(
             200, json=[{**SERVICE, "modalidad": "TALLER", "radio_cobertura_km": None}]
         )
@@ -188,7 +191,7 @@ def test_switch_to_workshop_accepts_null_radius_and_preserves_point(make_client)
     response = make_client(handler).patch(
         f"/api/v1/trabajador/servicios/{SERVICE_ID}",
         headers=TOKEN_HEADERS,
-        json={"modalidad": "TALLER", "radio_cobertura_km": None},
+        json={"modalidad": "TALLER", "radio_cobertura_km": None, "comuna_taller_id": CATEGORY_ID},
     )
     assert response.status_code == 200
     assert response.json()["latitud"] == SERVICE["latitud"]

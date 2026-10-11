@@ -13,7 +13,7 @@ grant usage on schema public, auth, storage to anon, authenticated;
 create type public.estado_verificacion as enum ('PENDIENTE', 'APROBADA', 'RECHAZADA');
 create type public.modalidad_servicio as enum ('DOMICILIO', 'TALLER');
 create table public.usuarios(id uuid primary key, nombre text, rol text, activo boolean default true);
-create table public.comunas(id uuid primary key, nombre text);
+create table public.comunas(id uuid primary key, nombre text, activa boolean default true);
 create table public.trabajadores(usuario_id uuid primary key references public.usuarios(id), comuna_id uuid);
 create table public.verificaciones_trabajador(trabajador_id uuid primary key, estado public.estado_verificacion);
 create table public.categorias(id uuid primary key, slug text, nombre text, descripcion text,

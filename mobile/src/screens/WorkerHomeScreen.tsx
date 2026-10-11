@@ -6,6 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { deleteWorkerService, getOwnServices, WorkerService, workerServicesErrorMessage } from '../api/workerServices';
 import type { WorkerVerification } from '../api/workerVerification';
 import { useAuth } from '../auth/AuthContext';
+import { getUpcomingBookings, bookingOperationError, type Booking } from '../api/bookings';
+import { formatBookingDate } from '../services/bookingForm';
+import { bookingStatusLabels } from '../services/bookingTracking';
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat('es-CL', {
@@ -14,11 +17,12 @@ function formatPrice(price: number): string {
 }
 
 export function WorkerHomeScreen({
-  verification, onRefresh, onPublish, onEdit, onCertifications, publishedServiceName, updatedServiceName, onDismissSuccess,
+  verification, onRefresh, onPublish, onEdit, onCertifications, publishedServiceName, updatedServiceName, onDismissSuccess, onBooking, onAgenda,
 }: {
   verification: WorkerVerification; onRefresh: () => void; onPublish: () => void;
   onCertifications: () => void;
   onEdit: (serviceId: string) => void;
+  onBooking: (bookingId: string) => void; onAgenda: () => void;
   publishedServiceName?: string; updatedServiceName?: string; onDismissSuccess: () => void;
 }) {
   const { user, withAccessToken } = useAuth();
@@ -33,6 +37,19 @@ export function WorkerHomeScreen({
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
   const approved = verification.estado === 'APROBADA';
+  const [upcoming, setUpcoming] = useState<Booking[]>([]);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+  const [upcomingError, setUpcomingError] = useState('');
+  const [upcomingRetry, setUpcomingRetry] = useState(0);
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    setLoadingUpcoming(true); setUpcomingError(''); setUpcoming([]);
+    void request.current((token) => getUpcomingBookings(token, controller.signal))
+      .then((items) => { if (!controller.signal.aborted) setUpcoming(items); })
+      .catch((reason) => { if (!controller.signal.aborted) setUpcomingError(bookingOperationError(reason)); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingUpcoming(false); });
+    return () => controller.abort();
+  }, [upcomingRetry]));
 
   const loadServices = useCallback(async () => {
     setLoadingServices(true);
@@ -184,7 +201,7 @@ export function WorkerHomeScreen({
           </View>)}
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>GANANCIAS Y PRÓXIMAS CITAS</Text>
+        <Text style={styles.sectionLabel}>GANANCIAS</Text>
       </View>
       <View style={styles.comingCard}>
         <Ionicons name="bar-chart-outline" size={30} color="#82918B" />
@@ -194,11 +211,37 @@ export function WorkerHomeScreen({
         </View>
       </View>
 
+      <View style={[styles.sectionHeader, styles.upcomingHeader]}>
+        <Text accessibilityRole="header" style={styles.sectionLabel}>PRÓXIMAS CITAS</Text>
+        <Pressable accessibilityRole="button" onPress={onAgenda} style={styles.serviceAction}><Text style={styles.link}>Ver todas</Text></Pressable>
+      </View>
+      {loadingUpcoming ? <View style={styles.infoCard}><ActivityIndicator color="#087A57" /><Text style={styles.hint}>Cargando próximas citas…</Text></View>
+        : upcomingError ? <View style={styles.infoCard}><Text accessibilityRole="alert" style={styles.errorText}>{upcomingError}</Text>
+          <Pressable accessibilityRole="button" style={styles.serviceAction} onPress={() => setUpcomingRetry((n) => n + 1)}><Text style={styles.link}>Reintentar</Text></Pressable></View>
+          : !upcoming.length ? <View style={styles.infoCard}><Text style={styles.infoTitle}>No tienes próximas citas</Text><Text style={styles.hint}>Tus solicitudes aceptadas aparecerán aquí cuando tengan una fecha futura.</Text></View>
+            : upcoming.map((booking) => {
+              const start = new Date(booking.inicio_en);
+              return <Pressable key={booking.id} accessibilityRole="button" accessibilityLabel={`Ver cita de ${booking.servicio_nombre}, ${formatBookingDate(booking.inicio_en)}`}
+                onPress={() => onBooking(booking.id)} style={[styles.serviceWrapper, styles.serviceRow]}>
+                <View style={styles.dateBadge}><Text style={styles.dateDay}>{start.getDate()}</Text><Text style={styles.dateMonth}>{start.toLocaleDateString('es-CL', { month: 'short' }).toUpperCase()}</Text></View>
+                <View style={styles.serviceBody}><Text style={styles.serviceName}>{booking.servicio_nombre}</Text>
+                  <Text style={styles.hint}>{booking.cliente_nombre ?? 'Cliente'} · {booking.comuna_servicio_nombre ?? 'Comuna por confirmar'}</Text>
+                  <Text style={styles.hint}>{formatBookingDate(booking.inicio_en)}</Text>
+                  <Text style={styles.hint}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'}</Text>
+                  <Text style={styles.link}>{bookingStatusLabels[booking.estado]}</Text></View>
+                <Ionicons name="chevron-forward" size={20} color="#087A57" />
+              </Pressable>;
+            })}
+
     </ScrollView>
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
+  upcomingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  dateBadge: { minWidth: 52, borderRadius: 12, backgroundColor: '#DDF2E9', padding: 8, alignItems: 'center' },
+  dateDay: { color: '#087A57', fontSize: 24, fontWeight: '900' },
+  dateMonth: { color: '#256047', fontSize: 11, fontWeight: '700' },
   successCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, marginBottom: 14, backgroundColor: '#DDF2E9', borderRadius: 14 },
   dismiss: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
   disabledAction: { opacity: 0.5 },

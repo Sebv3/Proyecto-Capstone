@@ -281,3 +281,88 @@ def test_me_rejects_an_inactive_profile(make_client) -> None:
         "/api/v1/auth/me", headers={"Authorization": "Bearer test-access-token"}
     )
     assert response.status_code == 403
+
+
+def test_recovery_requests_code_without_creating_accounts(make_client) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/auth/v1/recover"
+        assert json.loads(request.content) == {"email": "persona@example.com"}
+        assert "Authorization" not in request.headers
+        return httpx.Response(200, json={})
+
+    result = make_client(handler).post(
+        "/api/v1/auth/password-recovery", json={"email": " persona@example.com "}
+    )
+    assert result.status_code == 200
+    assert "Si el correo está registrado" in result.json()["message"]
+
+
+def test_reset_requires_recovery_code_then_updates_and_discards_session(make_client) -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/auth/v1/verify":
+            assert json.loads(request.content) == {
+                "email": "persona@example.com", "token": "123456", "type": "recovery",
+            }
+            return httpx.Response(200, json=SESSION)
+        assert request.headers["Authorization"] == "Bearer test-access-token"
+        if request.url.path == "/auth/v1/user":
+            assert request.method == "PUT"
+            assert json.loads(request.content) == {"password": "changed-secret"}
+            return httpx.Response(200, json={"id": USER_ID})
+        assert request.url.path == "/auth/v1/logout"
+        assert request.url.params["scope"] == "local"
+        return httpx.Response(204)
+
+    result = make_client(handler).post("/api/v1/auth/password-reset", json={
+        "email": "persona@example.com", "code": "123456", "password": "changed-secret",
+    })
+    assert result.status_code == 200
+    assert "access_token" not in result.json()
+    assert calls == ["/auth/v1/verify", "/auth/v1/user", "/auth/v1/logout"]
+
+
+@pytest.mark.parametrize("status", [400, 403, 429, 500])
+def test_invalid_or_expired_recovery_never_updates_password(make_client, status) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/auth/v1/verify"
+        return httpx.Response(status, json={"error_code": "otp_expired"})
+
+    result = make_client(handler).post("/api/v1/auth/password-reset", json={
+        "email": "persona@example.com", "code": "123456", "password": "changed-secret",
+    })
+    assert result.status_code == (502 if status == 500 else 429 if status == 429 else 400)
+
+
+@pytest.mark.parametrize("change", [
+    {"code": "abc123"}, {"code": "12345"}, {"password": "short"}, {"email": "invalid"},
+])
+def test_reset_validates_before_consuming_code(make_client, change) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        pytest.fail("Invalid reset must not contact Supabase")
+
+    result = make_client(handler).post("/api/v1/auth/password-reset", json={
+        "email": "persona@example.com", "code": "123456", "password": "changed-secret",
+        **change,
+    })
+    assert result.status_code == 422
+
+
+def test_failed_password_change_closes_recovery_session(make_client) -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/auth/v1/verify":
+            return httpx.Response(200, json=SESSION)
+        if request.url.path == "/auth/v1/user":
+            return httpx.Response(422, json={"error_code": "same_password"})
+        return httpx.Response(204)
+
+    result = make_client(handler).post("/api/v1/auth/password-reset", json={
+        "email": "persona@example.com", "code": "123456", "password": "changed-secret",
+    })
+    assert result.status_code == 400
+    assert calls[-1] == "/auth/v1/logout"

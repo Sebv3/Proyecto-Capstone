@@ -1,5 +1,14 @@
 # ServiMatch API
 
+Las nuevas solicitudes a domicilio requieren `comuna_servicio_id` (comuna activa).
+En taller se toma la comuna de la publicación; el cliente puede omitir ese campo
+y se rechaza si envía una comuna diferente. La migración
+`20261010120000_booking_client_and_service_commune.sql` debe aplicarse junto con
+esta versión de la API: guarda nombre del cliente y comuna como instantáneas,
+visibles solo a participantes. Citas antiguas conservan comuna null.
+Para las pruebas HTTP aisladas, incluir esta migración después de la corrección
+de conflictos y antes de ejecutar test_booking_integration.py.
+
 La forma recomendada de ejecutar la API es mediante Docker Compose desde la raíz
 del repositorio. La documentación interactiva queda disponible en
 `http://localhost:8000/docs` y el endpoint de salud en
@@ -188,3 +197,9 @@ COMPLETADA, siempre filtradas por el participante autenticado y protegidas por R
 El móvil convierte el día local a un rango UTC y sigue usando las instantáneas
 de precio, dirección y servicio guardadas al reservar. No añade migraciones.
 La transición de ACEPTADA a PAGADA continúa reservada al proceso de pago.
+
+`proximas=true` en el listado requiere trabajador y filtra por inicio igual o
+posterior a la hora UTC del servidor y estados ACEPTADA/PAGADA/EN_CAMINO/EN_CURSO/
+LISTO. Estos filtros se aplican antes de la paginación, ordenada por inicio e ID.
+El inicio móvil usa `limit=3`; una fecha `desde` anterior al presente no permite
+incluir citas pasadas. No modifica la consulta histórica de Agenda.

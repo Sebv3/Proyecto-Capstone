@@ -9,8 +9,10 @@ from app.schemas.booking import BookingCreate, BookingResponse
 
 def test_booking_start_is_future_and_normalized_to_utc():
     start = (datetime.now(UTC) + timedelta(days=1)).isoformat()
-    booking = BookingCreate(servicio_id=uuid4(), inicio_en=start,
-                            direccion_servicio="  Avenida Central 123  ")
+    booking = BookingCreate(
+        servicio_id=uuid4(), inicio_en=start,
+        direccion_servicio="  Avenida Central 123  ", comuna_servicio_id=uuid4(),
+    )
     assert booking.inicio_en.tzinfo == UTC
     assert booking.direccion_servicio == "Avenida Central 123"
 
@@ -20,7 +22,7 @@ def test_booking_start_is_future_and_normalized_to_utc():
 ])
 def test_booking_rejects_past_or_ambiguous_start(start):
     with pytest.raises(ValidationError):
-        BookingCreate(servicio_id=uuid4(), inicio_en=start)
+        BookingCreate(servicio_id=uuid4(), inicio_en=start, comuna_servicio_id=uuid4())
 
 
 @pytest.mark.parametrize("field", [
@@ -30,8 +32,14 @@ def test_client_cannot_supply_ownership_state_or_offer_snapshots(field):
     with pytest.raises(ValidationError):
         BookingCreate.model_validate({
             "servicio_id": str(uuid4()), "inicio_en": "2099-01-01T10:00:00-03:00",
+            "comuna_servicio_id": str(uuid4()),
             field: "forged",
         })
+
+
+def test_booking_can_omit_commune_for_server_owned_workshop_location():
+    booking = BookingCreate(servicio_id=uuid4(), inicio_en="2099-01-01T10:00:00Z")
+    assert booking.comuna_servicio_id is None
 
 
 def response_values():

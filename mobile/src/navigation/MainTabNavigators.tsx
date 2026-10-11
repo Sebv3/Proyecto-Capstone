@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useState, type ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
 import type { WorkerVerification } from '../api/workerVerification';
 import { ClientHomeScreen } from '../screens/ClientHomeScreen';
@@ -29,18 +30,21 @@ function RequestsNavigator({ role }: { role: BookingRole }) {
       bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</RequestsStack.Screen>
   </RequestsStack.Navigator>;
 }
-function WorkerAgendaHome({ onBooking }: { onBooking: (id: string) => void }) {
-  const [reservations, setReservations] = useState(false);
+type AgendaStackParams = { AgendaHome: { reservations: boolean; requestKey: number } | undefined; BookingTracking: { bookingId: string } };
+const AgendaStack = createNativeStackNavigator<AgendaStackParams>();
+function WorkerAgendaHome({ onBooking, openReservations }: { onBooking: (id: string) => void; openReservations?: { reservations: boolean; requestKey: number } }) {
+  const [reservations, setReservations] = useState(openReservations?.reservations ?? false);
+  useEffect(() => { if (openReservations) setReservations(openReservations.reservations); }, [openReservations?.requestKey, openReservations?.reservations]);
   return reservations ? <BookingRequestsScreen role="TRABAJADOR" agenda onBooking={onBooking} onAvailability={() => setReservations(false)} />
     : <WorkerAgendaScreen onReservations={() => setReservations(true)} />;
 }
 function WorkerAgendaNavigator() {
-  return <RequestsStack.Navigator screenOptions={{ headerShown: false }}>
-    <RequestsStack.Screen name="BookingList">{({ navigation }) => <WorkerAgendaHome
-      onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })} />}</RequestsStack.Screen>
-    <RequestsStack.Screen name="BookingTracking">{({ navigation, route }) => <BookingTrackingScreen role="TRABAJADOR"
-      bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</RequestsStack.Screen>
-  </RequestsStack.Navigator>;
+  return <AgendaStack.Navigator screenOptions={{ headerShown: false }}>
+    <AgendaStack.Screen name="AgendaHome">{({ navigation, route }) => <WorkerAgendaHome openReservations={route.params}
+      onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })} />}</AgendaStack.Screen>
+    <AgendaStack.Screen name="BookingTracking">{({ navigation, route }) => <BookingTrackingScreen role="TRABAJADOR"
+      bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</AgendaStack.Screen>
+  </AgendaStack.Navigator>;
 }
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -180,7 +184,7 @@ export function ClientMainTabs() {
 
 type WorkerTabParamList = {
   WorkerHome: undefined;
-  WorkerAgenda: undefined;
+  WorkerAgenda: NavigatorScreenParams<AgendaStackParams> | undefined;
   WorkerRequests: undefined;
   WorkerEarnings: undefined;
   WorkerProfile: undefined;
@@ -192,15 +196,17 @@ export type WorkerHomeStackParamList = {
   WorkerDashboard: { publishedServiceName?: string; updatedServiceName?: string } | undefined;
   PublishService: { serviceId?: string } | undefined;
   WorkerCertifications: { categoryId?: string } | undefined;
+  BookingTracking: { bookingId: string };
 };
 const WorkerHomeStack = createNativeStackNavigator<WorkerHomeStackParamList>();
 
-function WorkerHomeNavigator({ verification, onRefresh }: {
-  verification: WorkerVerification; onRefresh: () => void;
+function WorkerHomeNavigator({ verification, onRefresh, onAgenda }: {
+  verification: WorkerVerification; onRefresh: () => void; onAgenda: () => void;
 }) {
   return <WorkerHomeStack.Navigator screenOptions={{ headerShown: false }}>
     <WorkerHomeStack.Screen name="WorkerDashboard">
       {({ navigation, route }) => <WorkerHomeScreen verification={verification} onRefresh={onRefresh}
+        onAgenda={onAgenda} onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })}
         onPublish={() => navigation.navigate('PublishService')}
         onEdit={(serviceId) => navigation.navigate('PublishService', { serviceId })}
         onCertifications={() => navigation.navigate('WorkerCertifications')}
@@ -210,6 +216,8 @@ function WorkerHomeNavigator({ verification, onRefresh }: {
     </WorkerHomeStack.Screen>
     <WorkerHomeStack.Screen name="PublishService" component={PublishServiceScreen} options={{ gestureEnabled: false }} />
     <WorkerHomeStack.Screen name="WorkerCertifications" component={WorkerCertificationsScreen} options={{ gestureEnabled: false }} />
+    <WorkerHomeStack.Screen name="BookingTracking">{({ navigation, route }) => <BookingTrackingScreen role="TRABAJADOR"
+      bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</WorkerHomeStack.Screen>
   </WorkerHomeStack.Navigator>;
 }
 
@@ -220,7 +228,8 @@ export function WorkerMainTabs({
     <WorkerTab.Screen name="WorkerHome" options={{
       title: 'Inicio', tabBarIcon: tabIcon('home', 'home-outline'),
     }}>
-      {() => <WorkerHomeNavigator verification={verification} onRefresh={onRefresh} />}
+      {({ navigation }) => <WorkerHomeNavigator verification={verification} onRefresh={onRefresh}
+        onAgenda={() => navigation.navigate('WorkerAgenda', { screen: 'AgendaHome', params: { reservations: true, requestKey: Date.now() } })} />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerAgenda" options={{
       title: 'Agenda', tabBarIcon: tabIcon('calendar', 'calendar-outline'),

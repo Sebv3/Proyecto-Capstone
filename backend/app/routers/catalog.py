@@ -55,6 +55,8 @@ def _service_from_row(row: dict[str, Any]) -> CatalogServiceResponse:
                 "latitud": row.get("latitud"),
                 "longitud": row.get("longitud"),
                 "radio_cobertura_km": row.get("radio_cobertura_km"),
+                "comuna_taller_id": row.get("comuna_taller_id"),
+                "comuna_taller_nombre": row.get("comuna_taller_nombre"),
             }
         )
     except (KeyError, TypeError, ValueError) as exc:

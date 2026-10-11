@@ -19,6 +19,8 @@ import { blurFocusedElementOnWeb } from '../navigation/webFocus';
 import { serviceSchema, type ServiceCreateValues, type ServiceFormValues } from '../services/serviceSchema';
 import { canPublishInCategory } from '../services/certificationRules';
 import { LocationPicker } from '../components/LocationPicker';
+import { getCommunes, type Commune } from '../api/auth';
+import { ServiceCommuneSelect } from '../components/ServiceCommuneSelect';
 
 const fields = [
   { name: 'nombre', label: 'Nombre del servicio', placeholder: 'Ej. Reparación de grifería', maxLength: 120 },
@@ -35,6 +37,7 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
   request.current = withAccessToken;
   const submitting = useRef(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [communes, setCommunes] = useState<Commune[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [restriction, setRestriction] = useState('');
@@ -66,14 +69,16 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
     setRestriction('');
     void (async () => {
       try {
-        const [items, verification, services, certificates, existing] = await Promise.all([
+        const [items, verification, services, certificates, existing, locations] = await Promise.all([
           getCategories(), request.current(getWorkerVerification), request.current(getOwnServices),
           request.current(getWorkerCertifications).then((items) => ({ items, failed: false }))
             .catch(() => ({ items: [] as WorkerCertification[], failed: true })),
           serviceId ? request.current((token) => getOwnService(token, serviceId)) : Promise.resolve(null),
+          getCommunes(),
         ]);
         if (!active) return;
         setCategories(items);
+        setCommunes(locations);
         setCertifications(certificates.items);
         setCertificationsError(certificates.failed);
         if (verification.estado !== 'APROBADA') {
@@ -86,6 +91,7 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
           reset({ categoria_id: existing.categoria_id, nombre: existing.nombre, descripcion: existing.descripcion,
             precio_base: String(existing.precio_base), duracion_estimada_minutos: String(existing.duracion_estimada_minutos),
             modalidad: existing.modalidad, ubicacion_publica: existing.ubicacion_publica ?? '',
+            comuna_taller_id: existing.comuna_taller_id ?? '',
             latitud: existing.latitud ?? undefined, longitud: existing.longitud ?? undefined,
             radio_cobertura_km: String(existing.radio_cobertura_km ?? 5) });
           initialized.current = existing.id;
@@ -104,6 +110,9 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
     if (!categories.some((category) => category.id === values.categoria_id)) {
       setError('Selecciona una categoría disponible.');
       return;
+    }
+    if (values.modalidad === 'TALLER' && !communes.some((item) => item.id === values.comuna_taller_id)) {
+      setError('Selecciona una comuna disponible para tu taller.'); return;
     }
     submitting.current = true;
     setError('');
@@ -212,8 +221,14 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
             <Text style={styles.label}>{modality === 'TALLER' ? 'Dirección pública del taller' : 'Sector público desde donde atiendes'}</Text>
             <Controller control={control} name="ubicacion_publica" render={({ field: { value, onChange, onBlur } }) =>
               <TextInput accessibilityLabel="Ubicación pública del servicio" style={styles.input} value={value} onChangeText={onChange} onBlur={onBlur}
-                editable={!disabled} maxLength={240} placeholder={modality === 'TALLER' ? 'Ej. Avenida Central 123, Santiago' : 'Ej. Sector Plaza de Maipú'} placeholderTextColor="#82918B" />} />
+                editable={!disabled} maxLength={240} placeholder={modality === 'TALLER' ? 'Ej. Avenida Central 123' : 'Ej. Sector Plaza Central, Santiago'} placeholderTextColor="#82918B" />} />
             {errors.ubicacion_publica && <Text accessibilityRole="alert" style={styles.error}>{errors.ubicacion_publica.message}</Text>}
+            {modality === 'TALLER' && <>
+              <Controller control={control} name="comuna_taller_id" render={({ field: { value, onChange } }) =>
+                <ServiceCommuneSelect label="Comuna del taller" communes={communes} value={value ?? ''} onChange={onChange} disabled={submitDisabled} />} />
+              {errors.comuna_taller_id && <Text accessibilityRole="alert" style={styles.error}>{errors.comuna_taller_id.message}</Text>}
+              <Text style={styles.hint}>Esta comuna se mostrará al cliente al agendar y no podrá cambiarla.</Text>
+            </>}
             <Text style={styles.hint}>{modality === 'TALLER' ? 'Indica el lugar donde recibes al cliente.' : 'Elige un punto de referencia público. No necesitas indicar tu casa.'} La descripción y el punto aparecerán en el mapa.</Text>
             <Pressable accessibilityRole="button" disabled={disabled} style={styles.back} onPress={() => setLocationPickerOpen(true)}>
               <Ionicons name="location-outline" size={22} color="#256047" /><Text style={styles.link}>{latitude !== undefined && longitude !== undefined ? 'Cambiar punto en el mapa' : 'Elegir punto en el mapa'}</Text>

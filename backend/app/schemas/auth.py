@@ -67,6 +67,15 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=1)
 
 
+class PasswordRecoveryRequest(BaseModel):
+    email: Email
+
+
+class PasswordResetRequest(PasswordRecoveryRequest):
+    code: str = Field(pattern=r"^[0-9]{6,10}$")
+    password: str = Field(min_length=8, max_length=128)
+
+
 class SessionResponse(BaseModel):
     access_token: str
     refresh_token: str

@@ -13,7 +13,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 SERVICE_FIELDS = (
     "id,trabajador_id,categoria_id,nombre,descripcion,precio_base,"
     "duracion_estimada_minutos,modalidad,activo,creado_en,actualizado_en,"
-    "ubicacion_publica,latitud,longitud,radio_cobertura_km"
+    "ubicacion_publica,latitud,longitud,radio_cobertura_km,comuna_taller_id"
 )
 
 
@@ -158,6 +158,7 @@ async def update_own_service(
     token = _worker_token(user, credentials)
     existing = await _read_service(servicio_id, user, gateway, token)
     location_fields = {
+        "comuna_taller_id",
         "modalidad",
         "ubicacion_publica",
         "latitud",

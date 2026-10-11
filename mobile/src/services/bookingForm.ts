@@ -1,7 +1,7 @@
 import type { Availability, AvailabilityInput, BookingInput } from '../api/bookings';
 
-type Offer = { id: string; modalidad: 'DOMICILIO' | 'TALLER'; duracion_estimada_minutos: number; ubicacion_publica: string | null };
-export type BookingFields = { date: string; time: string; address: string };
+type Offer = { id: string; modalidad: 'DOMICILIO' | 'TALLER'; duracion_estimada_minutos: number; ubicacion_publica: string | null; comuna_taller_id?: string | null };
+export type BookingFields = { date: string; time: string; address: string; communeId: string };
 
 // Construct local time and round-trip its components: reject overflow dates and DST gaps.
 export function parseBookingTime(date: string, time: string): Date | null {
@@ -22,6 +22,8 @@ export function firstBookingStart(block: Availability, minutes: number, now = Da
   return Number.isFinite(start) && start + minutes * 60000 <= Date.parse(block.fin_en) ? new Date(start) : null;
 }
 export function buildBookingInput(offer: Offer, fields: BookingFields, blocks: Availability[], now = Date.now()): BookingInput {
+  if (offer.modalidad === 'DOMICILIO' && !fields.communeId) throw new Error('Selecciona la comuna de la dirección del servicio.');
+  if (offer.modalidad === 'TALLER' && !offer.comuna_taller_id) throw new Error('El trabajador debe completar la comuna del taller antes de agendar.');
   const start = parseBookingTime(fields.date.trim(), fields.time.trim());
   if (!start) throw new Error('Indica una fecha válida (DD-MM-AAAA) y una hora válida (HH:MM).');
   if (start.getTime() <= now) throw new Error('La fecha y hora deben ser futuras.');
@@ -36,7 +38,7 @@ export function buildBookingInput(offer: Offer, fields: BookingFields, blocks: A
   }
   if (offer.modalidad === 'TALLER' && !offer.ubicacion_publica) throw new Error('El taller debe tener una dirección publicada antes de agendar.');
   return { servicio_id: offer.id, inicio_en: start.toISOString(),
-    ...(offer.modalidad === 'DOMICILIO' ? { direccion_servicio: address } : {}) };
+    ...(offer.modalidad === 'DOMICILIO' ? { direccion_servicio: address, comuna_servicio_id: fields.communeId } : {}) };
 }
 export function formatBookingDate(value: string): string {
   const fields = localBookingFields(new Date(value));

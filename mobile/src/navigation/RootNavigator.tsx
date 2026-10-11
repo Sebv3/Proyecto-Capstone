@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { EmailConfirmedScreen } from '../screens/EmailConfirmedScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { PasswordRecoveryScreen } from '../screens/PasswordRecoveryScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { RegistrationRoleScreen } from '../screens/RegistrationRoleScreen';
@@ -20,6 +21,7 @@ import { ClientMainTabs, WorkerMainTabs } from './MainTabNavigators';
 
 export type RootStackParamList = {
   Login: undefined;
+  PasswordRecovery: undefined;
   RegistrationRole: undefined;
   Register: { role: 'CLIENTE' | 'TRABAJADOR' };
   Profile: undefined;
@@ -122,6 +124,7 @@ export function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? <>
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="PasswordRecovery" component={PasswordRecoveryScreen} />
         <Stack.Screen name="RegistrationRole" component={RegistrationRoleScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
       </> : user.rol === 'TRABAJADOR' && flow.state === 'legacy-profile' ?

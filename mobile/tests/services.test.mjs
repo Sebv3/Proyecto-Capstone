@@ -14,6 +14,7 @@ const values = {
   nombre: ' Reparación de grifería ', descripcion: ' Reparación y cambio de llaves en el domicilio. ',
   precio_base: '25000', duracion_estimada_minutos: '60', modalidad: 'DOMICILIO',
   ubicacion_publica: 'Sector Plaza Central', latitud: -33.45, longitud: -70.66, radio_cobertura_km: '5',
+  comuna_taller_id: '77777777-7777-4777-8777-777777777777',
 };
 const response = (config, data) => ({ config, data, status: 200, statusText: 'OK', headers: {} });
 const apiError = (status, detail = 'private database details', config = {}) => new axios.AxiosError(
@@ -33,6 +34,9 @@ test('service form normalizes text and sends whole CLP and minutes for both moda
 });
 
 test('publication requires a public location, a valid point and a home coverage radius', () => {
+  assert.equal(serviceSchema.safeParse({ ...values, modalidad: 'TALLER', comuna_taller_id: '' }).success, false);
+  assert.equal(serviceSchema.safeParse({ ...values, modalidad: 'TALLER', comuna_taller_id: 'invalid' }).success, false);
+  assert.equal(serviceSchema.parse(values).comuna_taller_id, null);
   for (const change of [{ ubicacion_publica: '' }, { latitud: undefined }, { longitud: undefined },
     { latitud: 91 }, { longitud: -181 }, { latitud: Infinity }, { radio_cobertura_km: '0' },
     { radio_cobertura_km: '101' }, { radio_cobertura_km: '1.5' }, { radio_cobertura_km: '' }]) {

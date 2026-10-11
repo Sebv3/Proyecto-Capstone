@@ -51,6 +51,17 @@ test('listing and detail authenticate and support filtering, pagination and abor
   assert.deepEqual(await api.getBookings('participant-token', { estado: 'ACEPTADA', agenda: true, desde: '2030-01-10T03:00:00Z', offset: 20 }, controller.signal), [booking]);
   assert.deepEqual(await api.getBooking('participant-token', booking.id, controller.signal), booking);
 });
+test('home requests the three nearest future active bookings with authentication and abort', async () => {
+  const controller = new AbortController();
+  handler = async (config) => {
+    assert.equal(config.url, '/solicitudes');
+    assert.deepEqual(config.params, { proximas: true, limit: 3, offset: 0 });
+    assert.equal(config.headers.Authorization, 'Bearer worker-token');
+    assert.equal(config.signal, controller.signal);
+    return response(config, [{ ...booking, estado: 'ACEPTADA' }]);
+  };
+  assert.equal((await api.getUpcomingBookings('worker-token', controller.signal))[0].estado, 'ACEPTADA');
+});
 test('accepting returns server state and forbids a manual payment action', async () => {
   handler = async (config) => {
     assert.equal(config.url, '/solicitudes/booking-1/aceptar');

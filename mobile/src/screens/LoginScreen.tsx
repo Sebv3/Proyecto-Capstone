@@ -95,6 +95,13 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
             }} style={styles.toggle}>
             <Text style={[styles.footer, styles.toggleText]}>¿No tienes cuenta? Crear cuenta</Text>
           </Pressable>
+          <Pressable accessibilityRole="button" disabled={isSubmitting}
+            onPress={() => {
+              blurFocusedElementOnWeb();
+              navigation.navigate('PasswordRecovery');
+            }} style={styles.toggle}>
+            <Text style={[styles.toggleText, { textAlign: 'center' }]}>Recuperar contraseña</Text>
+          </Pressable>
           <Text style={styles.footer}>Personas que necesitan ayuda.{'\n'}Personas que saben ayudar.</Text>
         </ScrollView>
       </KeyboardAvoidingView>

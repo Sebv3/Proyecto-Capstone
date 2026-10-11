@@ -12,7 +12,7 @@ const start = new Date(2030, 0, 10, 9, 30);
 const now = new Date(2030, 0, 9).getTime();
 const block = { id: 'block-1', servicio_id: offer.id, inicio_en: start.toISOString(),
   fin_en: new Date(start.getTime() + 120 * 60000).toISOString() };
-const fields = { ...localBookingFields(start), address: '  Calle Cliente 456, Santiago  ' };
+const fields = { ...localBookingFields(start), address: '  Calle Cliente 456, Santiago  ', communeId: 'commune-service' };
 const response = (config, data) => ({ config, data, status: 200, statusText: 'OK', headers: {} });
 
 test('local booking date round-trips and rejects overflow dates and malformed times', () => {
@@ -25,13 +25,15 @@ test('local booking date round-trips and rejects overflow dates and malformed ti
 test('home bookings normalize the private address and only send client-owned input', () => {
   assert.deepEqual(buildBookingInput(offer, fields, [block], now), {
     servicio_id: offer.id, inicio_en: start.toISOString(), direccion_servicio: 'Calle Cliente 456, Santiago',
+    comuna_servicio_id: fields.communeId,
   });
 });
 test('workshop bookings never send a client address or override modality or price', () => {
-  assert.deepEqual(buildBookingInput({ ...offer, modalidad: 'TALLER' }, fields, [block], now), {
+  assert.deepEqual(buildBookingInput({ ...offer, modalidad: 'TALLER', comuna_taller_id: 'worker-commune' }, fields, [block], now), {
     servicio_id: offer.id, inicio_en: start.toISOString(),
   });
   assert.throws(() => buildBookingInput({ ...offer, modalidad: 'TALLER', ubicacion_publica: null }, fields, [block], now));
+  assert.throws(() => buildBookingInput({ ...offer, modalidad: 'TALLER' }, fields, [block], now), /comuna del taller/);
 });
 test('the entire duration must fit one block for this service and be in the future', () => {
   assert.throws(() => buildBookingInput(offer, fields, [block], start.getTime()));
@@ -44,6 +46,10 @@ test('home addresses require 5 to 240 trimmed characters', () => {
   for (const address of ['', '    ', 'abcd', 'x'.repeat(241)]) {
     assert.throws(() => buildBookingInput(offer, { ...fields, address }, [block], now));
   }
+});
+test('the service commune is explicit and never inferred from a profile or free-text address', () => {
+  assert.throws(() => buildBookingInput(offer, { ...fields, communeId: '' }, [block], now), /comuna/);
+  assert.equal(buildBookingInput(offer, fields, [block], now).comuna_servicio_id, fields.communeId);
 });
 test('block shortcuts choose a future whole minute and reject expired or too-short blocks', () => {
   assert.equal(firstBookingStart(block, 60, now).toISOString(), start.toISOString());
@@ -65,10 +71,11 @@ test('creation authenticates the client and strips injected ownership, state and
   handler = async (config) => {
     assert.equal(config.url, '/solicitudes');
     assert.equal(config.headers.Authorization, 'Bearer client-token');
-    assert.deepEqual(JSON.parse(config.data), { servicio_id: offer.id, inicio_en: start.toISOString(), direccion_servicio: 'Calle Cliente 456' });
+    assert.deepEqual(JSON.parse(config.data), { servicio_id: offer.id, inicio_en: start.toISOString(), direccion_servicio: 'Calle Cliente 456', comuna_servicio_id: fields.communeId });
     return response(config, { id: 'booking-1', estado: 'PENDIENTE' });
   };
   await createBooking('client-token', { servicio_id: offer.id, inicio_en: start.toISOString(),
+    comuna_servicio_id: fields.communeId,
     direccion_servicio: 'Calle Cliente 456', cliente_id: 'intruder', estado: 'PAGADA', modalidad: 'TALLER', precio_base: 1 });
 });
 test('workshop creation omits the address parameter required to be absent by the backend', async () => {
@@ -76,7 +83,7 @@ test('workshop creation omits the address parameter required to be absent by the
     assert.equal(Object.hasOwn(JSON.parse(config.data), 'direccion_servicio'), false);
     return response(config, { id: 'booking-1' });
   };
-  await createBooking('client-token', { servicio_id: offer.id, inicio_en: start.toISOString() });
+  await createBooking('client-token', { servicio_id: offer.id, inicio_en: start.toISOString(), comuna_servicio_id: fields.communeId });
 });
 test('booking errors explain conflicts without leaking database messages', () => {
   for (const status of [401, 403, 404, 409, 422, 503, 500]) {

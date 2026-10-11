@@ -247,6 +247,10 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # Uncomment to customize email template
+[auth.email.template.recovery]
+subject = "Código para recuperar tu contraseña de ServiMatch"
+content_path = "./supabase/config-profiles/password-recovery/supabase/templates/recovery.html"
+
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"

@@ -2,6 +2,7 @@ import axios from 'axios';
 
 export type Availability = { id: string; servicio_id: string; inicio_en: string; fin_en: string };
 export type Booking = {
+  cliente_nombre?: string | null; comuna_servicio_id?: string | null; comuna_servicio_nombre?: string | null;
   id: string; servicio_id: string; cliente_id: string; trabajador_id: string;
   servicio_nombre: string; precio_base: number; duracion_estimada_minutos: number;
   modalidad: 'DOMICILIO' | 'TALLER'; inicio_en: string; ubicacion_servicio: string;
@@ -12,7 +13,7 @@ export type Booking = {
 };
 export type BookingStatus = Booking['estado'];
 export type BookingAction = 'aceptar' | 'rechazar' | 'en-camino' | 'iniciar' | 'listo';
-export type BookingInput = { servicio_id: string; inicio_en: string; direccion_servicio?: string };
+export type BookingInput = { servicio_id: string; inicio_en: string; direccion_servicio?: string; comuna_servicio_id?: string };
 const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, ''), timeout: 15000,
 });
@@ -21,6 +22,14 @@ function requireConnection() {
 }
 export type BookingFilters = { estado?: BookingStatus; desde?: string; hasta?: string; agenda?: boolean; offset?: number };
 export const BOOKING_PAGE_SIZE = 20;
+export async function getUpcomingBookings(token: string, signal?: AbortSignal): Promise<Booking[]> {
+  requireConnection();
+  const { data } = await api.get<Booking[]>('/solicitudes', {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+    params: { proximas: true, limit: 3, offset: 0 },
+  });
+  return data;
+}
 export async function getBookings(token: string, filters: BookingFilters = {}, signal?: AbortSignal): Promise<Booking[]> {
   requireConnection();
   const { data } = await api.get<Booking[]>('/solicitudes', {
@@ -93,6 +102,7 @@ export async function createBooking(token: string, values: BookingInput): Promis
   requireConnection();
   const { data } = await api.post<Booking>('/solicitudes', {
     servicio_id: values.servicio_id, inicio_en: values.inicio_en,
+    comuna_servicio_id: values.comuna_servicio_id,
     ...(values.direccion_servicio === undefined ? {} : { direccion_servicio: values.direccion_servicio }),
   }, { headers: { Authorization: `Bearer ${token}` } });
   return data;

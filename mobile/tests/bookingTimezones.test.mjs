@@ -26,7 +26,7 @@ test('repeated Chilean local times never expose a second ambiguous booking insta
   const times = getBookingTimes('04-04-2026', [block], 30, now);
   assert.deepEqual(times, ['23:00', '23:30']);
   for (const time of times) {
-    const input = buildBookingInput(offer, { date: '04-04-2026', time, address: 'Client address 123' },
+    const input = buildBookingInput(offer, { date: '04-04-2026', time, address: 'Client address 123', communeId: 'commune' },
       [block], now);
     assert.equal(input.inicio_en, parseBookingTime('04-04-2026', time).toISOString());
     assert.ok(Date.parse(input.inicio_en) < Date.parse('2026-04-05T03:00:00Z'));

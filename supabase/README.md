@@ -1,5 +1,31 @@
 # Supabase - ServiMatch
 
+`20261010160000_worker_owned_workshop_commune.sql` añade comuna_taller_id a las
+publicaciones. El trabajador debe completar la comuna al crear/editar un taller;
+la base valida la modalidad y comuna activa. El catálogo la expone y crear_solicitud
+la toma de la oferta, rechazando una comuna distinta enviada por el cliente.
+DOMICILIO conserva la comuna ingresada al agendar. Las ofertas antiguas quedan
+sin comuna hasta que el dueño la complete; las solicitudes conservan instantáneas.
+Tras las fixtures y migraciones previas de citas/comunas, ejecutar esta migración
+y `tests/workshop_commune_rules.sql` solo en la base desechable de pruebas.
+
+## Cliente y comuna de atención en las citas
+
+`20261010120000_booking_client_and_service_commune.sql` agrega instantáneas del
+nombre del cliente y de la comuna seleccionada para la dirección del servicio.
+La comuna no se obtiene del perfil ni se deduce del texto de la dirección.
+Las citas antiguas recuperan el nombre actual del cliente y conservan la comuna
+como null (Comuna por confirmar). La firma de crear_solicitud cambia: ahora exige
+`p_comuna_servicio_id`; coordinar la migración y actualización de API/móvil.
+Aplicar tras la migración de corrección de conflictos del 9 de octubre.
+No se modifican permisos de lectura de usuarios/clientes; los datos quedan en
+las solicitudes privadas protegidas por sus políticas de participantes.
+
+Prueba en PostgreSQL vacío y desechable: certifications_fixture, certificaciones,
+ubicaciones, modelo de solicitudes, operaciones, corrección de conflictos,
+booking_http_fixture, nueva migración y `tests/booking_commune_rules.sql`, en ese
+orden. Nunca ejecutar fixtures ni tests en Supabase compartido.
+
 Esta carpeta almacenará las migraciones SQL y los datos semilla compartidos por
 el equipo. El proyecto remoto de Supabase es el entorno de desarrollo del MVP,
 pero su estructura debe poder reconstruirse solamente con los archivos de este
@@ -128,3 +154,36 @@ certificaciones, ubicaciones, modelo y operaciones, luego
 y `booking_concurrency_b.sql` simultáneamente y ejecutar
 `booking_concurrency_verify.sql`: una aceptación debe fallar por conflicto y la
 otra quedar confirmada. Nunca ejecutar fixtures o estas pruebas en Supabase real.
+# Recuperación de contraseña por código
+
+La app solicita el correo, el código numérico y una contraseña nueva con confirmación.
+Usa los endpoints `/api/v1/auth/password-recovery` y `/api/v1/auth/password-reset`.
+La API llama a Supabase Auth `/recover`, verifica el OTP de tipo `recovery`, actualiza
+la contraseña con esa sesión y cierra la sesión de recuperación. No crea usuarios,
+no almacena códigos o contraseñas y no requiere migración.
+
+Antes de probar en el proyecto remoto, configurar **Authentication → Email Templates →
+Reset Password**: asunto `Código para recuperar tu contraseña de ServiMatch` y cuerpo
+del archivo `config-profiles/password-recovery/supabase/templates/recovery.html`.
+El correo debe mostrar `{{ .Token }}`; el enlace predeterminado no sirve para este formulario.
+El formulario admite códigos numéricos de 6 a 10 dígitos y el largo real lo determina
+la configuración de Supabase (actualmente 8 en el proyecto vinculado).
+
+Para desplegar únicamente esta plantilla con una cuenta autorizada:
+
+```powershell
+npx --yes supabase config diff --workdir supabase/config-profiles/password-recovery --project-ref lmzjwpapsguyhhdzcofu
+npx --yes supabase config push --workdir supabase/config-profiles/password-recovery --project-ref lmzjwpapsguyhhdzcofu --yes
+```
+
+El perfil acotado declara solo asunto y contenido de recuperación; no usar el config
+principal para este despliegue. El intento desde esta sesión recibió HTTP 403 por
+privilegios insuficientes: la plantilla remota sigue pendiente de configurar.
+
+Prueba manual: cerrar sesión → Recuperar contraseña → ingresar correo registrado →
+copiar código del correo → escribir y confirmar una contraseña nueva → guardar →
+iniciar sesión con ella. Repetir con cliente y trabajador, y probar código incorrecto,
+contraseñas diferentes y reenvío tras 60 segundos. Si el envío falla, revisar SMTP,
+destinatarios permitidos y límites de envío de Supabase. Si la actualización falla después
+de verificar el código, solicitar otro: el código anterior ya fue consumido.
+

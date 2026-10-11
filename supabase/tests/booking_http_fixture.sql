@@ -21,6 +21,7 @@ insert into public.usuarios(id,nombre,rol,activo,email) values
 alter table public.usuarios enable row level security;
 create policy usuarios_leer_propio on public.usuarios for select to authenticated
 using(id=auth.uid() or public.es_admin());
+insert into public.comunas(id,nombre) values ('77777777-7777-4777-8777-777777777777','Comuna del servicio');
 grant select on public.usuarios to authenticated;
 insert into public.servicios(id,trabajador_id,categoria_id,nombre,descripcion,precio_base,
     duracion_estimada_minutos,modalidad,ubicacion_publica,latitud,longitud,radio_cobertura_km) values

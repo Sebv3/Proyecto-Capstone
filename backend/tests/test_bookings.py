@@ -11,11 +11,14 @@ from app.services.supabase_auth import SupabaseAuthGateway, get_auth_gateway
 from tests.test_worker_services import SERVICE_ID, WORKER, WORKER_ID
 
 CLIENT_ID = "22222222-3333-4444-8555-666666666666"
+COMMUNE_ID = "77777777-7777-4777-8777-777777777777"
 BOOKING_ID = "dddddddd-eeee-4fff-8aaa-bbbbbbbbbbbb"
 CLIENT = {**WORKER, "id": CLIENT_ID, "rol": "CLIENTE"}
 HEADERS = {"Authorization": "Bearer test-token"}
 START = (datetime.now(UTC) + timedelta(days=2)).isoformat()
 BOOKING = {
+    "cliente_nombre": "Cliente de prueba", "comuna_servicio_id": COMMUNE_ID,
+    "comuna_servicio_nombre": "Comuna de la atención",
     "id": BOOKING_ID, "servicio_id": SERVICE_ID, "cliente_id": CLIENT_ID,
     "trabajador_id": WORKER_ID, "servicio_nombre": "Reparacion de puerta",
     "precio_base": 25000, "duracion_estimada_minutos": 60, "modalidad": "DOMICILIO",
@@ -57,15 +60,19 @@ def test_create_uses_authenticated_rpc_and_server_owned_snapshots(make_client):
         assert json.loads(request.content) == {
             "p_servicio_id": SERVICE_ID, "p_inicio_en": START,
             "p_direccion_servicio": "Direccion del cliente 123",
+            "p_comuna_servicio_id": COMMUNE_ID,
         }
         return httpx.Response(200, json=[BOOKING])
 
     response = make_client(handler).post("/api/v1/solicitudes", headers=HEADERS, json={
         "servicio_id": SERVICE_ID, "inicio_en": START,
         "direccion_servicio": "Direccion del cliente 123",
+        "comuna_servicio_id": COMMUNE_ID,
     })
     assert response.status_code == 201
     assert response.json()["precio_base"] == 25000
+    assert response.json()["cliente_nombre"] == "Cliente de prueba"
+    assert response.json()["comuna_servicio_nombre"] == "Comuna de la atención"
 
 
 @pytest.mark.parametrize("user,field", [(CLIENT, "cliente_id"), (WORKER, "trabajador_id")])
@@ -81,6 +88,26 @@ def test_listing_is_scoped_and_paginated(make_client, user, field):
         "/api/v1/solicitudes?estado=PENDIENTE&limit=10&offset=20", headers=HEADERS
     )
     assert response.status_code == 200
+
+
+def test_upcoming_uses_server_time_and_excludes_finished_bookings_before_limit(make_client):
+    before = datetime.now(UTC)
+
+    def handler(request):
+        assert request.url.params["trabajador_id"] == f"eq.{WORKER_ID}"
+        assert request.url.params["limit"] == "3"
+        assert request.url.params["order"] == "inicio_en.asc,id.asc"
+        expression = request.url.params["and"]
+        prefix = "(estado.in.(ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO),inicio_en.gte."
+        assert expression.startswith(prefix)
+        instant = datetime.fromisoformat(expression[len(prefix):-1])
+        assert before <= instant <= datetime.now(UTC)
+        return httpx.Response(200, json=[{**BOOKING, "estado": "ACEPTADA"}])
+
+    result = make_client(handler, WORKER).get("/api/v1/solicitudes", headers=HEADERS, params={
+        "proximas": "true", "limit": 3, "desde": "2000-01-01T00:00:00Z",
+    })
+    assert result.status_code == 200
 
 
 def test_agenda_filters_confirmed_reservations_in_utc_day_range(make_client):
@@ -102,6 +129,7 @@ def test_agenda_filters_confirmed_reservations_in_utc_day_range(make_client):
 
 @pytest.mark.parametrize("params,status", [
     ({"agenda": "true"}, 403),
+    ({"proximas": "true"}, 403),
     ({"desde": "2030-01-10T00:00:00"}, 422),
     ({"desde": "2030-01-10T00:00:00Z", "hasta": "2030-01-10T00:00:00Z"}, 422),
     ({"desde": "2030-01-11T00:00:00Z", "hasta": "2030-01-10T00:00:00Z"}, 422),
@@ -234,7 +262,7 @@ def test_database_errors_are_controlled(make_client, code, status):
     response = make_client(
         lambda request: httpx.Response(400, json={"code": code, "message": "private-detail"})
     ).post("/api/v1/solicitudes", headers=HEADERS,
-           json={"servicio_id": SERVICE_ID, "inicio_en": START})
+           json={"servicio_id": SERVICE_ID, "inicio_en": START, "comuna_servicio_id": COMMUNE_ID})
     assert response.status_code == status
     assert "private-detail" not in response.text
 
@@ -251,7 +279,8 @@ def test_read_requires_authentication(make_client, path):
 def test_create_rejects_forged_fields(make_client, extra):
     response = make_client(lambda request: pytest.fail("No debe crear datos falsificados")).post(
         "/api/v1/solicitudes", headers=HEADERS,
-        json={"servicio_id": SERVICE_ID, "inicio_en": START, **extra},
+        json={"servicio_id": SERVICE_ID, "inicio_en": START,
+              "comuna_servicio_id": COMMUNE_ID, **extra},
     )
     assert response.status_code == 422
 

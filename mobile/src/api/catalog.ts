@@ -11,6 +11,7 @@ export type Category = {
 };
 
 export type CatalogService = {
+  comuna_taller_id?: string | null; comuna_taller_nombre?: string | null;
   id: string;
   nombre: string;
   descripcion: string;

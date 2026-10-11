@@ -45,6 +45,7 @@ class CatalogWorkerResponse(BaseModel):
 
 
 class ServiceCreate(BaseModel):
+    comuna_taller_id: UUID | None = None
     categoria_id: UUID
     nombre: ServiceName
     descripcion: ServiceDescription
@@ -58,6 +59,10 @@ class ServiceCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_coverage(self) -> Self:
+        if self.modalidad == ServiceModality.TALLER and self.comuna_taller_id is None:
+            raise ValueError("Selecciona la comuna del taller")
+        if self.modalidad == ServiceModality.DOMICILIO and self.comuna_taller_id is not None:
+            raise ValueError("La comuna del taller corresponde solo a TALLER")
         if self.modalidad == ServiceModality.DOMICILIO and self.radio_cobertura_km is None:
             raise ValueError("Indica el radio de cobertura del servicio a domicilio")
         if self.modalidad == ServiceModality.TALLER and self.radio_cobertura_km is not None:
@@ -66,6 +71,7 @@ class ServiceCreate(BaseModel):
 
 
 class ServiceUpdate(BaseModel):
+    comuna_taller_id: UUID | None = None
     categoria_id: UUID | None = None
     nombre: ServiceName | None = None
     descripcion: ServiceDescription | None = None
@@ -85,13 +91,14 @@ class ServiceUpdate(BaseModel):
         if any(
             getattr(self, field) is None
             for field in self.model_fields_set
-            if field != "radio_cobertura_km"
+            if field not in ("radio_cobertura_km", "comuna_taller_id")
         ):
             raise ValueError("Los campos de un servicio no pueden ser null")
         return self
 
 
 class ServiceResponse(BaseModel):
+    comuna_taller_id: UUID | None = None
     id: UUID
     trabajador_id: UUID
     categoria_id: UUID
@@ -110,6 +117,8 @@ class ServiceResponse(BaseModel):
 
 
 class CatalogServiceResponse(BaseModel):
+    comuna_taller_id: UUID | None = None
+    comuna_taller_nombre: str | None = None
     id: UUID
     nombre: str
     descripcion: str

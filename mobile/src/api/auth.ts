@@ -132,3 +132,24 @@ export function loginErrorMessage(error: unknown): string {
 export function isUnauthorized(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 401;
 }
+
+export async function requestPasswordRecovery(email: string): Promise<void> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  await api.post('/auth/password-recovery', { email: email.trim() });
+}
+
+export async function resetPassword(email: string, code: string, password: string): Promise<void> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  await api.post('/auth/password-reset', { email: email.trim(), code: code.trim(), password });
+}
+
+export function passwordRecoveryErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) return 'No pudimos confirmar la operación. Revisa tu conexión; si estabas cambiando la contraseña, prueba iniciar sesión con la nueva.';
+    if (error.response.status === 429) return 'Demasiados intentos. Espera unos minutos antes de volver a intentar.';
+    if (error.response.status === 400 && typeof error.response.data?.detail === 'string') return error.response.data.detail;
+    if (error.response.status === 422) return 'Revisa el correo, el código y la contraseña ingresados.';
+    return 'No pudimos completar la recuperación. Inténtalo más tarde.';
+  }
+  return error instanceof Error ? error.message : 'No se pudo recuperar la contraseña.';
+}

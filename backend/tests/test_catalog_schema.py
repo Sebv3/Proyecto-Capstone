@@ -49,6 +49,7 @@ def test_service_create_normalizes_text_and_accepts_modalities() -> None:
             precio_base=25000,
             duracion_estimada_minutos=90,
             modalidad=modality,
+            comuna_taller_id=CATEGORY_ID if modality == ServiceModality.TALLER else None,
             ubicacion_publica=" Sector Plaza Central ",
             latitud=-33.45,
             longitud=-70.66,
@@ -122,6 +123,7 @@ def test_publication_text_boundaries_match_database(field, minimum, maximum) -> 
         "categoria_id": CATEGORY_ID, "nombre": "Reparacion",
         "descripcion": "Reparacion completa", "precio_base": 1,
         "duracion_estimada_minutos": 1, "modalidad": "TALLER",
+        "comuna_taller_id": CATEGORY_ID,
         "ubicacion_publica": "Sector Plaza Central", "latitud": -90, "longitud": 180,
     }
     for length in (minimum, maximum):

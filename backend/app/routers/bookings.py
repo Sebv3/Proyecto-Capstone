@@ -1,5 +1,5 @@
 import secrets
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -25,7 +25,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 BOOKING_FIELDS = (
     "id,servicio_id,cliente_id,trabajador_id,servicio_nombre,precio_base,"
     "duracion_estimada_minutos,modalidad,inicio_en,ubicacion_servicio,estado,"
-    "motivo_cancelacion,creado_en,actualizado_en"
+    "motivo_cancelacion,creado_en,actualizado_en,cliente_nombre,comuna_servicio_id,comuna_servicio_nombre"
 )
 
 
@@ -42,7 +42,7 @@ def _error(response: Any) -> None:
         code = response.json().get("code")
     except (AttributeError, TypeError, ValueError):
         code = None
-    if code == "PGRST202":
+    if code in ("PGRST202", "42703"):
         raise HTTPException(503, "Falta aplicar la migración de solicitudes y agenda")
     if code == "P0002":
         raise HTTPException(404, "Solicitud, servicio o bloque no disponible")
@@ -112,6 +112,7 @@ async def create_booking(
     rows = await _rpc(gateway, _token(credentials), "crear_solicitud", {
         "p_servicio_id": str(body.servicio_id), "p_inicio_en": body.inicio_en.isoformat(),
         "p_direccion_servicio": body.direccion_servicio,
+        "p_comuna_servicio_id": str(body.comuna_servicio_id) if body.comuna_servicio_id else None,
     })
     booking = _one(BookingResponse, rows)
     if booking.cliente_id != user.id:
@@ -126,6 +127,7 @@ async def list_bookings(
     desde: AwareDatetime | None = None,
     hasta: AwareDatetime | None = None,
     agenda: bool = False,
+    proximas: bool = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[BookingResponse]:
@@ -133,7 +135,7 @@ async def list_bookings(
         raise HTTPException(403, "Esta operación requiere un participante")
     if desde is not None and hasta is not None and hasta <= desde:
         raise HTTPException(422, "El término del rango debe ser posterior al inicio")
-    if agenda:
+    if agenda or proximas:
         _role(user, UserRole.TRABAJADOR)
     field = "cliente_id" if user.rol == UserRole.CLIENTE else "trabajador_id"
     params = {
@@ -142,16 +144,21 @@ async def list_bookings(
     }
     if estado is not None:
         params["estado"] = f"eq.{estado.value}"
-    if agenda:
+    if agenda or proximas:
         states = "ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO,COMPLETADA"
+        if proximas:
+            states = "ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO"
         params["and"] = f"(estado.in.({states}))"
     ranges = []
+    if proximas:
+        now = datetime.now(UTC)
+        desde = max(desde, now) if desde is not None else now
     if desde is not None:
         ranges.append(f"inicio_en.gte.{desde.astimezone(UTC).isoformat()}")
     if hasta is not None:
         ranges.append(f"inicio_en.lt.{hasta.astimezone(UTC).isoformat()}")
     if ranges:
-        if agenda:
+        if agenda or proximas:
             ranges.insert(0, f"estado.in.({states})")
         params["and"] = f"({','.join(ranges)})"
     response = await gateway.request(

@@ -1,5 +1,16 @@
 # ServiMatch móvil — SCRUM-10 a SCRUM-12
 
+Próximas citas muestra nombre del cliente y comuna de atención. Agendar a domicilio
+exige seleccionar la comuna correspondiente a la dirección ingresada. En taller,
+el cliente ve la comuna definida por el trabajador, sin selector ni dato enviado.
+Publicar/editar un taller exige comuna_taller_id. Los talleres antiguos requieren
+completarla antes de permitir nuevas reservas. La migración adicional es
+`20261010160000_worker_owned_workshop_commune.sql`; conserva las citas existentes.
+No usa la comuna del perfil cliente. Las citas antiguas muestran Comuna por
+confirmar. Requiere aplicar `20261010120000_booking_client_and_service_commune.sql`
+y actualizar el backend. Probar domicilio fuera de la comuna del perfil,
+taller, búsqueda de comuna, cancelación del selector y citas antiguas.
+
 Login conectado a `POST /api/v1/auth/login` y `GET /api/v1/auth/me`.
 Después de ingresar se muestra el nombre, correo y rol del perfil real.
 En Android e iOS, la sesión se almacena cifrada con Expo SecureStore y se restaura
@@ -292,3 +303,10 @@ el cliente, revisar fecha en Agenda y cancelar con motivo. Comprobar conflictos
 de solicitudes superpuestas, filtros vacíos, carga de más páginas, pérdida de
 conexión y acceso a solicitudes de terceros. Las pruebas automáticas de estados
 y HTTP no reemplazan la revisión en Expo Go con fuentes grandes.
+
+Inicio del trabajador: PRÓXIMAS CITAS muestra las tres reservas futuras más
+cercanas, aceptadas o en avance, con fecha local, servicio, modalidad y estado.
+Al volver a Inicio se actualiza; cada tarjeta abre el seguimiento y Ver todas
+abre Agenda en la vista de reservas. Hay estados de carga, vacío y reintento.
+La consulta aplica fecha y estados antes de limitar los resultados; no incluye
+pendientes, rechazadas, canceladas ni completadas. No requiere otra migración.

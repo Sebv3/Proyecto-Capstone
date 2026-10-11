@@ -1,0 +1,7 @@
+# This scoped profile declares only the recovery email template.
+# Push with --workdir supabase/config-profiles/password-recovery --project-ref <ref>.
+project_id = "Proyecto-Capstone"
+
+[auth.email.template.recovery]
+subject = "Código para recuperar tu contraseña de ServiMatch"
+content_path = "./supabase/templates/recovery.html"

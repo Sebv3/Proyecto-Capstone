@@ -43,6 +43,7 @@ class BookingCreate(BaseModel):
     servicio_id: UUID
     inicio_en: AwareDatetime
     direccion_servicio: BookingAddress | None = None
+    comuna_servicio_id: UUID | None = None
 
     @field_validator("inicio_en")
     @classmethod
@@ -53,6 +54,9 @@ class BookingCreate(BaseModel):
 
 
 class BookingResponse(BaseModel):
+    cliente_nombre: str | None = None
+    comuna_servicio_id: UUID | None = None
+    comuna_servicio_nombre: str | None = None
     id: UUID
     servicio_id: UUID
     cliente_id: UUID

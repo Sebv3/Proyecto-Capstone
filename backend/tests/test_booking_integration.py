@@ -112,7 +112,8 @@ def schedule(api, service=HOME, start=None):
 
 
 def create(api, start, service=HOME, user=CLIENT):
-    body = {"servicio_id": service, "inicio_en": start.isoformat()}
+    body = {"servicio_id": service, "inicio_en": start.isoformat(),
+            "comuna_servicio_id": "77777777-7777-4777-8777-777777777777"}
     if service == HOME:
         body["direccion_servicio"] = "Direccion privada del cliente 123"
     result = api.post("/api/v1/solicitudes", headers=headers(user), json=body)
@@ -174,6 +175,7 @@ def test_conflicts_duplicate_requests_and_adjacent_slots(integration):
     booking = create(api, start)
     duplicate = api.post("/api/v1/solicitudes", headers=headers(CLIENT), json={
         "servicio_id": HOME, "inicio_en": start.isoformat(),
+        "comuna_servicio_id": "77777777-7777-4777-8777-777777777777",
         "direccion_servicio": "Client address 123",
     })
     assert duplicate.status_code == 409

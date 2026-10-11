@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 export type WorkerService = {
+  comuna_taller_id?: string | null;
   id: string;
   trabajador_id: string;
   categoria_id: string;
@@ -20,7 +21,7 @@ export type WorkerService = {
 
 export type WorkerServiceCreate = Pick<WorkerService,
   'categoria_id' | 'nombre' | 'descripcion' | 'precio_base' | 'duracion_estimada_minutos' | 'modalidad'
-> & { ubicacion_publica: string; latitud: number; longitud: number; radio_cobertura_km: number | null };
+> & { ubicacion_publica: string; latitud: number; longitud: number; radio_cobertura_km: number | null; comuna_taller_id: string | null };
 
 const api = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, ''),
@@ -48,6 +49,7 @@ export async function updateWorkerService(accessToken: string, serviceId: string
     precio_base: values.precio_base, duracion_estimada_minutos: values.duracion_estimada_minutos,
     modalidad: values.modalidad, ubicacion_publica: values.ubicacion_publica,
     latitud: values.latitud, longitud: values.longitud, radio_cobertura_km: values.radio_cobertura_km,
+    comuna_taller_id: values.comuna_taller_id,
   }, { headers: { Authorization: `Bearer ${accessToken}` } });
   return data;
 }
@@ -73,6 +75,7 @@ export async function createWorkerService(
     latitud: values.latitud,
     longitud: values.longitud,
     radio_cobertura_km: values.radio_cobertura_km,
+    comuna_taller_id: values.comuna_taller_id,
   }, { headers: { Authorization: `Bearer ${accessToken}` } });
   return data;
 }

@@ -10,6 +10,8 @@ import { buildBookingInput, firstBookingStart, formatBookingDate, getBookingTime
 import { formatCatalogPrice } from '../services/catalogFilters';
 import { BookingCalendar } from '../components/BookingCalendar';
 import { bookingStyles as styles } from '../components/bookingStyles';
+import { getCommunes, type Commune } from '../api/auth';
+import { ServiceCommuneSelect } from '../components/ServiceCommuneSelect';
 
 export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string; onBack: () => void }) {
   const { withAccessToken } = useAuth();
@@ -24,18 +26,21 @@ export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [address, setAddress] = useState('');
+  const [communes, setCommunes] = useState<Commune[]>([]);
+  const [communeId, setCommuneId] = useState('');
   const [saving, setSaving] = useState(false);
   const [booking, setBooking] = useState<Booking | null>(null);
   usePreventRemove(saving, () => {});
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setLoadError(''); setService(null); setBlocks([]);
-    void Promise.all([getServiceDetail(serviceId, controller.signal), getAvailability(serviceId, controller.signal)])
-      .then(([offer, availability]) => {
+    void Promise.all([getServiceDetail(serviceId, controller.signal), getAvailability(serviceId, controller.signal), getCommunes()])
+      .then(([offer, availability, locations]) => {
         if (controller.signal.aborted) return;
         const available = availability.filter((block) => block.servicio_id === serviceId && firstBookingStart(block, offer.duracion_estimada_minutos))
           .sort((a, b) => Date.parse(a.inicio_en) - Date.parse(b.inicio_en));
         setService(offer); setBlocks(available);
+        setCommunes(locations);
         setDate((current) => {
           if (getBookingTimes(current, available, offer.duracion_estimada_minutos).length) return current;
           const start = available[0] && firstBookingStart(available[0], offer.duracion_estimada_minutos);
@@ -51,7 +56,7 @@ export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string
     if (!service || savingRef.current || booking || loading || loadError) return;
     setError('');
     let input;
-    try { input = buildBookingInput(service, { date, time, address }, blocks); }
+    try { input = buildBookingInput(service, { date, time, address, communeId }, blocks); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Revisa los datos.'); return; }
     savingRef.current = true; setSaving(true);
     try { setBooking(await request.current((token) => createBooking(token, input))); }
@@ -60,6 +65,7 @@ export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string
   }
   const times = service ? getBookingTimes(date, blocks, service.duracion_estimada_minutos) : [];
   const disabled = saving || loading || !service || !times.includes(time) || !blocks.length
+    || (service.modalidad === 'DOMICILIO' ? !communes.some((item) => item.id === communeId) : !service.comuna_taller_id)
     || (service.modalidad === 'TALLER' && !service.ubicacion_publica);
   const changeDate = (value: string) => { setDate(value); setTime(''); setError(''); };
   return <SafeAreaView style={styles.page}>
@@ -79,6 +85,7 @@ export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string
           <Text style={styles.value}>{formatBookingDate(booking.inicio_en)}</Text>
           <Text style={styles.text}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'}</Text>
           <Text style={styles.text}>{booking.ubicacion_servicio}</Text>
+          <Text style={styles.text}>{booking.comuna_servicio_nombre ?? 'Comuna por confirmar'}</Text>
           <Text selectable style={styles.hint}>N.º de solicitud: {booking.id}</Text>
           <Text style={styles.hint}>No se realizó ningún cobro.</Text>
           <Text style={styles.hint}>Puedes consultar el avance en la pestaña Solicitudes.</Text>
@@ -116,9 +123,16 @@ export function ScheduleServiceScreen({ serviceId, onBack }: { serviceId: string
               <View style={styles.row}><Ionicons name="location-outline" size={17} color="#087D56" /><Text style={[styles.label, styles.green]}>{service.modalidad === 'DOMICILIO' ? 'Dirección del servicio' : 'Dirección del taller'}</Text></View>
               {service.modalidad === 'DOMICILIO' ? <>
                 <TextInput accessibilityLabel="Dirección de atención" editable={!saving} value={address} onChangeText={setAddress} maxLength={240}
-                  placeholder="Calle, número, departamento y comuna" style={styles.input} />
+                  placeholder="Calle, número y departamento" style={styles.input} />
                 <Text style={styles.hint}>Se comparte con el trabajador de esta solicitud.</Text>
               </> : <Text style={styles.text}>{service.ubicacion_publica ?? 'El trabajador todavía no publicó la dirección del taller.'}</Text>}
+              {service.modalidad === 'DOMICILIO' ? <>
+                <ServiceCommuneSelect communes={communes} value={communeId} disabled={saving} onChange={setCommuneId} />
+                <Text style={styles.hint}>Elige la comuna de la dirección que ingresaste.</Text>
+              </> : <>
+                <Text style={styles.label}>Comuna del taller</Text>
+                <Text style={styles.text}>{service.comuna_taller_nombre ?? 'El trabajador debe completar la comuna del taller antes de agendar.'}</Text>
+              </>}
             </View>
             <Text style={styles.eyebrow}>RESUMEN DE LA SOLICITUD</Text>
             <View style={styles.card}>
