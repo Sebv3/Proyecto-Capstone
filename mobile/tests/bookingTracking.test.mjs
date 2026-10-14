@@ -77,19 +77,19 @@ test('cancellation and completion send only their expected data and preserve lea
   handler = async (config) => {
     const cancel = config.url.endsWith('/cancelar');
     assert.deepEqual(JSON.parse(config.data), cancel ? { motivo: 'No puedo asistir' } : { codigo: '012345' });
-    assert.equal(config.headers.Authorization, 'Bearer client-token');
+    assert.equal(config.headers.Authorization, cancel ? 'Bearer client-token' : 'Bearer worker-token');
     return response(config, { ...booking, estado: cancel ? 'CANCELADA' : 'COMPLETADA' });
   };
   assert.equal((await api.cancelBooking('client-token', booking.id, '  No puedo asistir  ')).estado, 'CANCELADA');
-  assert.equal((await api.completeBooking('client-token', booking.id, ' 012345 ')).estado, 'COMPLETADA');
+  assert.equal((await api.completeBooking('worker-token', booking.id, ' 012345 ')).estado, 'COMPLETADA');
 });
-test('confirmation code is obtained through the worker endpoint and not stored as a booking field', async () => {
+test('confirmation code is obtained with the client token and not stored as a booking field', async () => {
   handler = async (config) => {
     assert.equal(config.url, '/solicitudes/booking-1/codigo-confirmacion');
-    assert.equal(config.headers.Authorization, 'Bearer worker-token');
+    assert.equal(config.headers.Authorization, 'Bearer client-token');
     return response(config, { codigo: '012345', expira_en: '2030-01-11T10:00:00Z' });
   };
-  assert.equal((await api.getConfirmationCode('worker-token', booking.id)).codigo, '012345');
+  assert.equal((await api.getConfirmationCode('client-token', booking.id)).codigo, '012345');
 });
 test('conflicts and uncertain network results instruct the user to refresh', () => {
   const conflict = new axios.AxiosError('failed', 'ERR_BAD_REQUEST', {}, {}, { status: 409, data: { detail: 'internal data' } });

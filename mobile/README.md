@@ -1,5 +1,47 @@
 # ServiMatch móvil — SCRUM-10 a SCRUM-12
 
+## SCRUM-55: calificar un servicio
+
+En una solicitud COMPLETADA, el cliente elige de 1 a 5 estrellas y puede escribir
+un comentario público de hasta 1000 caracteres. Enviar calificación guarda una
+única opinión; el trabajador puede consultar la calificación de su servicio.
+El detalle de un servicio muestra promedio, cantidad y opiniones públicas del
+trabajador, sin identificar a los clientes ni sus solicitudes. Se actualiza al
+volver a la pantalla y permite cargar más opiniones.
+
+Requiere la API actualizada y `20261013220000_service_reviews.sql`. Las opiniones
+permanecen después del servicio; únicamente el chat es temporal.
+Pruebas: `npm run test:reviews`. Comprobar con cliente y trabajador: finalizar
+con código, calificar, reabrir y comprobar que no se puede repetir ni modificar;
+visitar el detalle y comprobar el promedio. Una solicitud no completada no debe
+permitir calificar, y otra cuenta no debe acceder a la reseña privada.
+
+## Seguimiento y chat temporal (SCRUM-53 y SCRUM-56)
+
+El seguimiento usa tarjeta del participante, cinco pasos horizontales y barra
+de avance. Conserva los estados reales de pago, en camino y listo para retirar;
+los detalles de dirección, precio e identificador completo son desplegables.
+Para el cliente, la tarjeta obtiene el nombre del trabajador desde el servicio
+asociado a la solicitud y verifica su identidad; no depende de la consulta del
+chat. Si el servicio ya no está disponible, muestra el error y permite reintentar.
+Ir al chat abre una conversación privada de la solicitud. Permite enviar,
+editar y eliminar mensajes propios; los mensajes se actualizan cada 3 segundos
+mientras la pantalla está activa. Se pausa en segundo plano o con la pestaña
+oculta y se actualiza al volver. No se superponen consultas durante un envío
+ni se conservan mensajes en la pantalla al cerrar el chat.
+Al terminar, cancelar o rechazar el servicio se eliminan también en la base.
+
+Requiere `20261013210000_temporary_service_chat.sql` y la API actualizada.
+Pruebas: `npm run test:chat`. Verificar en dos teléfonos: enviar y recibir,
+editar y eliminar mensaje propio, cerrar el servicio y comprobar que el chat
+queda cerrado y vacío. Otra cuenta no debe poder consultar la conversación.
+
+Vista visual aislada, con cuentas ficticias y sin Supabase: ejecutar
+`node tests/tracking-preview-api.mjs`; en otra terminal iniciar Expo en puerto
+8095 con `EXPO_PUBLIC_API_URL=http://127.0.0.1:8096/api/v1`. Entrar con
+`preview@example.test` y cualquier contraseña de 8 caracteres. Detener ambos
+procesos al terminar y mantener esta URL fuera de la configuración habitual.
+
 Próximas citas muestra nombre del cliente y comuna de atención. Agendar a domicilio
 exige seleccionar la comuna correspondiente a la dirección ingresada. En taller,
 el cliente ve la comuna definida por el trabajador, sin selector ni dato enviado.
@@ -293,7 +335,11 @@ canceladas muestran su resultado y motivo disponible. No se inventan fechas de
 transiciones: solo se muestra la última actualización disponible.
 El trabajador acepta/rechaza solicitudes pendientes y realiza las acciones
 permitidas por el estado. Ambos participantes pueden cancelar antes del pago
-con motivo. Para finalizar, el trabajador genera el código y el cliente lo confirma.
+con motivo. Para finalizar, el cliente genera el código y lo entrega al trabajador,
+que lo ingresa y pulsa Finalizar servicio. Requiere la migración
+`20261013200000_client_confirmation_worker_completion.sql`, aplicada junto con la API
+y el móvil actualizados. Los códigos anteriores pendientes quedan vencidos; el
+cliente debe generar uno nuevo. Se conservan el vencimiento de 24h y cinco intentos.
 Agenda conserva la gestión de disponibilidad y ofrece Ver reservas por fecha
 local, con calendario y formato DD-MM-AAAA; incluye aceptadas y posteriores.
 No requiere otra migración. ACEPTADA queda pendiente de pago: la app no simula
@@ -310,3 +356,22 @@ Al volver a Inicio se actualiza; cada tarjeta abre el seguimiento y Ver todas
 abre Agenda en la vista de reservas. Hay estados de carga, vacío y reintento.
 La consulta aplica fecha y estados antes de limitar los resultados; no incluye
 pendientes, rechazadas, canceladas ni completadas. No requiere otra migración.
+
+## SCRUM-54: pago simulado
+
+En Solicitudes, abrir una solicitud aceptada como CLIENTE. El seguimiento muestra
+tarifa base, comisión del 15 % y total calculados por el servidor. Pulsar
+**Simular pago**, revisar el total y confirmar. La solicitud pasa a PAGADA y
+muestra el número del comprobante simulado. No se cobra dinero real.
+El trabajador puede consultar el mismo desglose y continuar el servicio.
+Si la hora de la cita ya pasó, se muestra el motivo y no se ofrece Simular pago.
+El cliente puede cancelar esa solicitud y agendar un nuevo horario futuro.
+
+Requiere la migración `20261013120000_simulated_payments.sql` y la API actualizada.
+`npm run test:payments` comprueba el contrato HTTP. Verificación manual en Expo Go:
+
+1. Publicar disponibilidad y agendar un servicio futuro de $20.000.
+2. Aceptarlo como trabajador; abrirlo como cliente y comprobar total $23.000.
+3. Simular pago; actualizar y comprobar que conserva el mismo comprobante.
+4. Como trabajador, avanzar; como cliente, generar el código; como trabajador, ingresarlo y finalizar.
+5. Repetir en TALLER; comprobar permisos de otra cuenta y reintento tras perder conexión.

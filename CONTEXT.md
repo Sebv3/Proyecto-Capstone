@@ -1,7 +1,7 @@
 # CONTEXT.md - ServiMatch
 
 > **Archivo de contexto completo para IA y nuevos integrantes del equipo.**
-> Última actualización: Septiembre 2026
+> Flujo de finalización actualizado: 13 de octubre de 2026.
 
 ---
 
@@ -161,11 +161,9 @@ Proyecto ServiMatch contexto/
 ### Estados de la Solicitud
 
 ```
-PENDIENTE → ACEPTADA → PAGADA → EN_CAMINO → EN_CURSO → COMPLETADA
-                  ↓                    ↓            ↓
-             RECHAZADA            EN_CURSO      LISTO (taller)
-                  ↓                    ↓            ↓
-              CANCELADA          COMPLETADA    COMPLETADA
+Domicilio: PENDIENTE → ACEPTADA → PAGADA → EN_CAMINO → EN_CURSO → COMPLETADA
+Taller:    PENDIENTE → ACEPTADA → PAGADA → EN_CURSO → LISTO → COMPLETADA
+Alternativas: PENDIENTE → RECHAZADA; PENDIENTE o ACEPTADA → CANCELADA (MVP).
 ```
 
 **Flujo a domicilio:** PAGADA → EN_CAMINO → EN_CURSO → COMPLETADA
@@ -211,14 +209,18 @@ Ingreso del trabajador    = Tarifa base (impuestos los declara el trabajador)
 - **RN-011:** Pago asociado a solicitud
 - **RN-012:** Comisión 15% sobre tarifa base
 - **RN-016:** Pago anticipado, liberación post-servicio
-- **RN-017:** Confirmación con código (24h expiración)
+- **RN-017:** El cliente genera el código y lo comparte al terminar el servicio;
+  el trabajador lo ingresa y pulsa Finalizar servicio. El código expira en 24h.
 
 ### Cancelación
 - **RN-022:** Cancelación cliente: gratuita (10 min) / tardía (10% penalización)
 - **RN-023:** Cancelación trabajador: reembolso 100% + bloqueo 2h
 
 ### Calificación y Confianza
-- **RN-013:** Calificación post-servicio
+- **RN-013:** Una calificación por solicitud COMPLETADA, creada por su cliente activo.
+  Puntuación entera de 1–5 y comentario público opcional de hasta 1000 caracteres.
+  Las reseñas se conservan; el promedio y la cantidad del trabajador son públicos
+  sin exponer identidad del cliente ni datos privados de la solicitud.
 - **RN-028:** Moderación: filtro automático + sistema de reporte
 - **RN-034:** Disputa: reporte con evidencia → admin resuelve
 
@@ -246,8 +248,8 @@ Ingreso del trabajador    = Tarifa base (impuestos los declara el trabajador)
 5. Enviar solicitud
 6. Coordinar por chat
 7. Pagar (tarifa base + 15%)
-8. **Si domicilio:** Esperar al trabajador → Confirmar con código
-9. **Si taller:** Dejar objeto → Esperar notificación "Listo" → Recoger + código
+8. **Si domicilio:** Esperar al trabajador → Revisar servicio terminado → Generar código y entregarlo al trabajador
+9. **Si taller:** Dejar objeto → Esperar notificación "Listo" → Recoger → Generar código y entregarlo al trabajador
 10. Calificar y reseñar
 
 ### Flujo del Trabajador (Domicilio)
@@ -256,8 +258,9 @@ Ingreso del trabajador    = Tarifa base (impuestos los declara el trabajador)
 3. Recibir solicitud → Aceptar
 4. Presionar "En camino" → Llegar → Presionar "Comenzar"
 5. Realizar servicio
-6. Compartir código de confirmación con cliente
-7. Recibir pago (tarifa base)
+6. Pedir al cliente que genere y entregue su código cuando esté conforme
+7. Ingresar el código del cliente → Presionar "Finalizar servicio" → COMPLETADA
+8. Recibir pago (tarifa base)
 
 ### Flujo del Trabajador (Taller)
 1. Registro → Verificación de identidad → Aprobación
@@ -266,7 +269,19 @@ Ingreso del trabajador    = Tarifa base (impuestos los declara el trabajador)
 4. Recibir objeto del cliente → Presionar "Comenzar"
 5. Realizar trabajo (puede ser días)
 6. Presionar "Trabajo listo" → Notificar al cliente
-7. Cliente recoge → Ingresa código → Pago liberado
+7. Cliente recoge → Cliente genera y entrega código → Trabajador ingresa código y pulsa "Finalizar servicio"
+8. Solicitud COMPLETADA → Pago liberado
+
+El cliente genera el código únicamente en EN_CURSO (domicilio) o LISTO (taller).
+El trabajador no puede generar el código y el cliente no ejecuta la finalización.
+Vence 24 horas después de generarse; generar otro sustituye al anterior sin reiniciar
+el límite de cinco intentos incorrectos. La liberación simulada del ingreso permanece
+pendiente de implementación; completar la solicitud no realiza una transferencia.
+
+El chat se vincula a una solicitud activa y solo es accesible por su cliente y
+trabajador. Al completar, cancelar o rechazar la solicitud, se elimina la
+conversación junto con todos sus mensajes; no queda historial consultable ni
+versiones anteriores de mensajes editados o eliminados.
 
 ---
 
@@ -409,7 +424,7 @@ Al trabajar en este proyecto, ten en cuenta:
 1. **Proyecto de título:** Es un proyecto académico, no de producción. Mercado Pago queda en Sandbox.
 2. **Mercado chileno:** Precios en CLP, RUT, comunas de Santiago.
 3. **Dos flujos distintos:** Domicilio (EN_CAMINO) vs Taller (LISTO). Siempre preguntar `a_domicilio`.
-4. **Código de confirmación:** Elemento central del flujo de pago. 24h de expiración.
+4. **Código de confirmación:** Lo genera el cliente y lo valida el trabajador al finalizar. 24h de expiración.
 5. **Comisión 15%:** El trabajador recibe la tarifa base. Los impuestos son responsabilidad del trabajador.
 6. **Sin GPS en tiempo real:** La ubicación es estática, registrada por el usuario.
 7. **Moderación:** Reseñas tienen filtro automático + sistema de reporte.

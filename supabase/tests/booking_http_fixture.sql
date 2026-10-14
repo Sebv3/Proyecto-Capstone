@@ -35,17 +35,12 @@ insert into public.servicios(id,trabajador_id,categoria_id,nombre,descripcion,pr
 create function public.test_reset_bookings() returns void language plpgsql
 security definer set search_path='' as $$ begin
     if not public.es_admin() then raise insufficient_privilege; end if;
+    if to_regclass('public.calificaciones') is not null then execute 'delete from public.calificaciones'; end if;
+    -- payments is introduced after this fixture; resolve the table at execution time.
+    if to_regclass('public.pagos') is not null then execute 'delete from public.pagos'; end if;
     delete from public.confirmaciones_solicitud;
     delete from public.solicitudes;
     delete from public.disponibilidades;
 end; $$;
-create function public.test_set_paid(p_id uuid) returns void language plpgsql
-security definer set search_path='' as $$ begin
-    if not public.es_admin() then raise insufficient_privilege; end if;
-    update public.solicitudes set estado='PAGADA' where id=p_id and estado='ACEPTADA';
-    if not found then raise exception 'Expected an accepted booking'; end if;
-end; $$;
 revoke all on function public.test_reset_bookings() from public;
-revoke all on function public.test_set_paid(uuid) from public;
 grant execute on function public.test_reset_bookings() to authenticated;
-grant execute on function public.test_set_paid(uuid) to authenticated;

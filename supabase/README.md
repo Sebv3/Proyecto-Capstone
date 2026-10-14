@@ -1,5 +1,50 @@
 # Supabase - ServiMatch
 
+## SCRUM-55: reseñas de servicios completados
+
+`20261013220000_service_reviews.sql` crea `calificaciones` con puntuación de 1–5,
+comentario opcional y una fila por solicitud. `crear_calificacion` verifica cliente
+activo, propiedad y estado COMPLETADA; el bloqueo de la solicitud evita duplicados
+concurrentes. Reintentar la misma opinión devuelve la fila existente y otra distinta
+se rechaza. Las cuentas no tienen permisos de escritura directa ni de edición/borrado.
+
+RLS limita los datos privados a participantes y administradores activos. El RPC
+de reputación pública expone solo puntuación, comentario, servicio y fecha, junto
+con promedio y cantidad; nunca identidad del cliente o ubicación de la solicitud.
+Se conservan las reseñas tras completar el servicio, independientemente del chat.
+Revisar con el equipo antes de aplicar al proyecto compartido. Las pruebas SQL
+`tests/reviews_rules.sql` se ejecutan solo en la base desechable de integración.
+
+## SCRUM-53: chat temporal
+
+`20261013210000_temporary_service_chat.sql` crea conversaciones únicas por
+solicitud y mensajes privados con autoría validada. Solo los participantes
+activos pueden leer; la escritura se realiza mediante RPC y los autores pueden
+editar o eliminar exclusivamente sus mensajes, sin versiones anteriores.
+El trigger de solicitudes elimina conversación y mensajes cuando el servicio
+pasa a COMPLETADA, CANCELADA o RECHAZADA, incluso con operaciones concurrentes.
+La prueba `tests/temporary_chat_rules.sql` se ejecuta únicamente en la base
+desechable del script de integración, nunca en Supabase compartido.
+
+## SCRUM-54: modelo de pago y comisión simulada
+
+`20261013120000_simulated_payments.sql` crea `pagos` con comprobantes privados,
+tarifa base, comisión del 15 %, total CLP y marca obligatoria de simulación.
+Solo se leen por participantes activos o administradores activos; las cuentas
+de la app no pueden insertar, modificar ni eliminar pagos directamente.
+
+`consultar_pago_solicitud` calcula el desglose desde la instantánea de la solicitud.
+`simular_pago_solicitud` permite pagar exclusivamente al cliente dueño de una
+solicitud ACEPTADA futura. El pago y la transición a PAGADA son atómicos;
+reintentos concurrentes reutilizan el comprobante. No hay cobros reales, pasarela
+ni creación automática de comprobantes para solicitudes PAGADA preexistentes.
+
+Aplicar después de las migraciones de solicitudes/comunas y previa revisión del
+equipo. Para validar en la base desechable, usar el script documentado en
+`backend/README.md`: ejecuta `tests/payments_rules.sql` y los recorridos HTTP.
+Las pruebas verifican RLS, redondeo, permisos y rollback de un fallo al actualizar
+el estado; sus fixtures nunca deben aplicarse al Supabase compartido.
+
 ## Notificaciones dentro de la app
 
 `20261011120000_in_app_notifications.sql` crea la tabla privada `notificaciones`,

@@ -258,11 +258,11 @@ async def cancel_booking(
 async def confirmation_code(
     booking_id: UUID, user: CurrentUser, credentials: BearerToken, gateway: AuthGateway
 ) -> ConfirmationCodeResponse:
-    _role(user, UserRole.TRABAJADOR)
+    _role(user, UserRole.CLIENTE)
     token = _token(credentials)
     booking = await _read(booking_id, user, gateway, token)
-    if booking.trabajador_id != user.id:
-        raise HTTPException(403, "Solo el trabajador puede generar el código")
+    if booking.cliente_id != user.id:
+        raise HTTPException(403, "Solo el cliente puede generar el código")
     code = f"{secrets.randbelow(1000000):06d}"
     expires = await _rpc(gateway, token, "generar_codigo_solicitud", {
         "p_solicitud_id": str(booking_id), "p_codigo": code,
@@ -275,10 +275,11 @@ async def complete_booking(
     booking_id: UUID, body: BookingComplete,
     user: CurrentUser, credentials: BearerToken, gateway: AuthGateway
 ) -> BookingResponse:
+    _role(user, UserRole.TRABAJADOR)
     token = _token(credentials)
     booking = await _read(booking_id, user, gateway, token)
-    if booking.cliente_id != user.id:
-        raise HTTPException(403, "Solo el cliente puede confirmar la finalización")
+    if booking.trabajador_id != user.id:
+        raise HTTPException(403, "Solo el trabajador puede finalizar el servicio")
     try:
         transition_booking(booking.estado, BookingStatus.COMPLETADA, booking.modalidad,
                            BookingActor.CONFIRMACION)
@@ -288,7 +289,7 @@ async def complete_booking(
         "p_solicitud_id": str(booking_id), "p_codigo": body.codigo,
     })
     if isinstance(result, dict) and "error" in result:
-        raise HTTPException(409, "Código incorrecto, vencido o bloqueado; consulta al trabajador")
+        raise HTTPException(409, "Código incorrecto, vencido o bloqueado; consulta al cliente")
     return _parse(BookingResponse, result)
 
 

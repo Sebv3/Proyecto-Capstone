@@ -133,24 +133,40 @@ def test_complete_lifecycle_uses_real_rpc_and_code(integration, service, steps):
     api = integration
     start, _ = schedule(api, service)
     booking = create(api, start, service)
+    chat_path = f"/api/v1/solicitudes/{booking['id']}/chat"
+    assert api.post(chat_path, headers=headers(CLIENT)).status_code == 200
+    sent = api.post(chat_path + "/mensajes", headers=headers(CLIENT), json={
+        "id": "abababab-abab-4bab-8bab-abababababab", "contenido": "Coordinar el servicio",
+    })
+    assert sent.status_code == 200
     assert booking["modalidad"] == ("DOMICILIO" if service == HOME else "TALLER")
     assert booking["ubicacion_servicio"] == (
         "Direccion privada del cliente 123" if service == HOME else "Avenida Central 123"
     )
     assert action(api, booking, "aceptar").status_code == 200
     assert action(api, booking, "iniciar").status_code == 409
-    with httpx.Client(base_url=URL) as direct:
-        paid = direct.post("/rpc/test_set_paid", headers=headers(ADMIN),
-                           json={"p_id": booking["id"]})
-        assert paid.status_code == 204, paid.text
+    paid = api.post(f"/api/v1/solicitudes/{booking['id']}/pago/simular",
+                    headers=headers(CLIENT), json={})
+    assert paid.status_code == 200, paid.text
+    assert paid.json()["pago"]["monto_total"] == (23000 if service == HOME else 34500)
     for step in steps:
         result = action(api, booking, step)
         assert result.status_code == 200, result.text
-    code = action(api, booking, "codigo-confirmacion")
+    assert action(api, booking, "codigo-confirmacion", WORKER).status_code == 403
+    code = action(api, booking, "codigo-confirmacion", CLIENT)
     assert code.status_code == 200, code.text
-    result = action(api, booking, "completar", CLIENT, {"codigo": code.json()["codigo"]})
-    assert result.status_code == 200 and result.json()["estado"] == "COMPLETADA", result.text
     assert action(api, booking, "completar", CLIENT,
+                  {"codigo": code.json()["codigo"]}).status_code == 403
+    result = action(api, booking, "completar", WORKER, {"codigo": code.json()["codigo"]})
+    assert result.status_code == 200 and result.json()["estado"] == "COMPLETADA", result.text
+    assert api.get(chat_path, headers=headers(CLIENT)).status_code == 410
+    review_path = f"/api/v1/solicitudes/{booking['id']}/calificacion"
+    review = api.post(review_path, headers=headers(CLIENT), json={
+        "puntuacion": 5, "comentario": "Muy buen trabajo",
+    })
+    assert review.status_code == 201, review.text
+    assert api.get(review_path, headers=headers(WORKER)).json()["puntuacion"] == 5
+    assert action(api, booking, "completar", WORKER,
                   {"codigo": code.json()["codigo"]}).status_code == 409
 
 
@@ -226,3 +242,142 @@ def test_worker_cannot_manage_foreign_availability(integration):
     assert result.status_code == 403
     assert api.delete(f"{path}/{block['id']}", headers=headers(OTHER_WORKER)).status_code == 403
     assert api.delete(f"{path}/{block['id']}", headers=headers(WORKER)).status_code == 200
+
+
+def test_simulated_payment_permissions_idempotency_and_rls(integration):
+    api = integration
+    start, _ = schedule(api)
+    booking = create(api, start)
+    path = f"/api/v1/solicitudes/{booking['id']}/pago"
+    assert api.post(path + "/simular", headers=headers(CLIENT), json={}).status_code == 409
+    assert action(api, booking, "aceptar").status_code == 200
+    quote = api.get(path, headers=headers(CLIENT))
+    assert quote.status_code == 200 and quote.json()["monto_total"] == 23000
+    for user in (WORKER, OTHER_CLIENT):
+        assert api.post(path + "/simular", headers=headers(user), json={}).status_code == 403
+    assert api.get(path, headers=headers(OTHER_CLIENT)).status_code == 404
+    # Concurrent retries must produce one receipt and one committed payment.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: api.post(
+            path + "/simular", headers=headers(CLIENT), json={},
+        ), range(2)))
+    assert all(result.status_code == 200 for result in results)
+    assert results[0].json()["pago"]["id"] == results[1].json()["pago"]["id"]
+    cancelled = action(api, booking, "cancelar", CLIENT, {"motivo": "Cambio de planes"})
+    assert cancelled.status_code == 409
+    with httpx.Client(base_url=URL) as direct:
+        assert len(direct.get("/pagos", headers=headers(CLIENT)).json()) == 1
+        assert len(direct.get("/pagos", headers=headers(WORKER)).json()) == 1
+        assert direct.get("/pagos", headers=headers(OTHER_CLIENT)).json() == []
+        assert direct.patch("/pagos", headers=headers(CLIENT),
+                            json={"monto_total": 1}).status_code == 403
+
+
+def test_concurrent_cancellation_and_payment_are_mutually_exclusive(integration):
+    api = integration
+    start, _ = schedule(api)
+    booking = create(api, start)
+    assert action(api, booking, "aceptar").status_code == 200
+    path = f"/api/v1/solicitudes/{booking['id']}/pago/simular"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        payment = pool.submit(api.post, path, headers=headers(CLIENT), json={})
+        cancellation = pool.submit(action, api, booking, "cancelar", CLIENT,
+                                   {"motivo": "Cambio de planes"})
+        results = [payment.result(), cancellation.result()]
+    assert sorted(result.status_code for result in results) == [200, 409]
+    final = api.get(f"/api/v1/solicitudes/{booking['id']}", headers=headers(CLIENT)).json()
+    with httpx.Client(base_url=URL) as direct:
+        receipts = direct.get("/pagos", headers=headers(CLIENT)).json()
+    assert len(receipts) == (1 if final["estado"] == "PAGADA" else 0)
+    assert final["estado"] in ("PAGADA", "CANCELADA")
+
+
+def test_temporary_chat_crud_permissions_and_terminal_cleanup(integration):
+    api = integration
+    start, _ = schedule(api)
+    booking = create(api, start)
+    path = f"/api/v1/solicitudes/{booking['id']}/chat"
+    assert api.get(path, headers=headers(CLIENT)).json()["conversacion_id"] is None
+    first = api.post(path, headers=headers(CLIENT))
+    second = api.post(path, headers=headers(WORKER))
+    assert first.status_code == second.status_code == 200
+    assert first.json()["conversacion_id"] == second.json()["conversacion_id"]
+    assert api.get(path, headers=headers(OTHER_CLIENT)).status_code == 404
+    message_id = "aaaaaaaa-1234-4123-8123-aaaaaaaaaaaa"
+    payload = {"id": message_id, "contenido": "Mensaje temporal"}
+    for _ in range(2):
+        sent = api.post(path + "/mensajes", headers=headers(CLIENT), json=payload)
+        assert sent.status_code == 200
+    assert len(api.get(path, headers=headers(WORKER)).json()["items"]) == 1
+    message_path = path + "/mensajes/" + message_id
+    assert api.patch(message_path, headers=headers(WORKER),
+                     json={"contenido": "No soy el autor"}).status_code == 404
+    assert api.patch(message_path, headers=headers(CLIENT),
+                     json={"contenido": "Texto nuevo"}).status_code == 200
+    assert api.delete(message_path, headers=headers(WORKER)).status_code == 404
+    assert api.delete(message_path, headers=headers(CLIENT)).status_code == 200
+    assert api.get(path, headers=headers(CLIENT)).json()["items"] == []
+    assert api.post(path + "/mensajes", headers=headers(CLIENT), json=payload).status_code == 200
+    cancelled = action(api, booking, "cancelar", CLIENT, {"motivo": "Cambio de planes"})
+    assert cancelled.status_code == 200
+    assert api.get(path, headers=headers(CLIENT)).status_code == 410
+    assert api.post(path, headers=headers(CLIENT)).status_code == 410
+    with httpx.Client(base_url=URL) as direct:
+        assert direct.get("/conversaciones", headers=headers(CLIENT)).json() == []
+        assert direct.get("/mensajes", headers=headers(CLIENT)).json() == []
+
+
+def test_message_send_racing_cancellation_cannot_retain_chat(integration):
+    api = integration
+    start, _ = schedule(api)
+    booking = create(api, start)
+    path = f"/api/v1/solicitudes/{booking['id']}/chat"
+    assert api.post(path, headers=headers(CLIENT)).status_code == 200
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        sent = pool.submit(api.post, path + "/mensajes", headers=headers(CLIENT), json={
+            "id": "abababab-abab-4bab-8bab-abababababab", "contenido": "Mensaje simultaneo",
+        })
+        cancelled = pool.submit(action, api, booking, "cancelar", CLIENT,
+                                {"motivo": "Cambio de planes"})
+        assert sent.result().status_code in (200, 410)
+        assert cancelled.result().status_code == 200
+    assert api.get(path, headers=headers(CLIENT)).status_code == 410
+    with httpx.Client(base_url=URL) as direct:
+        assert direct.get("/conversaciones", headers=headers(CLIENT)).json() == []
+        assert direct.get("/mensajes", headers=headers(CLIENT)).json() == []
+
+
+def test_completed_review_concurrent_retries_and_public_privacy(integration):
+    api = integration
+    start, _ = schedule(api)
+    booking = create(api, start)
+    path = f"/api/v1/solicitudes/{booking['id']}/calificacion"
+    assert api.get(path, headers=headers(CLIENT)).json() is None
+    assert api.post(path, headers=headers(CLIENT), json={"puntuacion": 5}).status_code == 409
+    assert action(api, booking, "aceptar").status_code == 200
+    assert api.post(f"/api/v1/solicitudes/{booking['id']}/pago/simular",
+                    headers=headers(CLIENT), json={}).status_code == 200
+    for step in ("en-camino", "iniciar"):
+        assert action(api, booking, step).status_code == 200
+    code = action(api, booking, "codigo-confirmacion", CLIENT).json()["codigo"]
+    assert action(api, booking, "completar", WORKER, {"codigo": code}).status_code == 200
+    for user in (WORKER, OTHER_CLIENT):
+        assert api.post(path, headers=headers(user), json={"puntuacion": 5}).status_code == 403
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: api.post(path, headers=headers(CLIENT), json={
+            "puntuacion": 4, "comentario": "Buen trabajo",
+        }), range(2)))
+    assert sorted(result.status_code for result in results) == [200, 201]
+    assert results[0].json()["id"] == results[1].json()["id"]
+    assert api.post(path, headers=headers(CLIENT), json={"puntuacion": 1}).status_code == 409
+    assert api.get(path, headers=headers(OTHER_CLIENT)).status_code == 404
+    public = api.get(f"/api/v1/trabajadores/{WORKER}/calificaciones")
+    assert public.status_code == 200
+    assert public.json()["promedio"] == 4 and public.json()["cantidad"] == 1
+    assert set(public.json()["items"][0]) == {
+        "id", "puntuacion", "comentario", "servicio_nombre", "creado_en",
+    }
+    with httpx.Client(base_url=URL) as direct:
+        assert direct.get("/calificaciones", headers=headers(OTHER_CLIENT)).json() == []
+        assert direct.patch("/calificaciones", headers=headers(CLIENT),
+                            json={"puntuacion": 1}).status_code == 403

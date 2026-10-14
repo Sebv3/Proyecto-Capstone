@@ -266,7 +266,7 @@ def test_start_does_not_bypass_payment(make_client):
     assert response.status_code == 409
 
 
-def test_worker_gets_random_confirmation_code_without_exposing_hash(make_client):
+def test_client_gets_random_confirmation_code_without_exposing_hash(make_client):
     def handler(request):
         if request.method == "GET":
             return httpx.Response(200, json=[{**BOOKING, "estado": "EN_CURSO"}])
@@ -274,7 +274,7 @@ def test_worker_gets_random_confirmation_code_without_exposing_hash(make_client)
         assert len(code) == 6 and code.isdigit()
         return httpx.Response(200, json=START)
 
-    response = make_client(handler, WORKER).post(
+    response = make_client(handler, CLIENT).post(
         f"/api/v1/solicitudes/{BOOKING_ID}/codigo-confirmacion", headers=HEADERS
     )
     assert response.status_code == 200
@@ -285,7 +285,7 @@ def test_worker_gets_random_confirmation_code_without_exposing_hash(make_client)
     ({**BOOKING, "estado": "COMPLETADA"}, 200),
     ({"error": "codigo_invalido"}, 409), ({"error": "codigo_no_disponible"}, 409),
 ])
-def test_client_completion_validates_private_code(make_client, payload, status):
+def test_worker_completion_validates_private_code(make_client, payload, status):
     def handler(request):
         if request.method == "GET":
             return httpx.Response(200, json=[{**BOOKING, "estado": "EN_CURSO"}])
@@ -293,7 +293,7 @@ def test_client_completion_validates_private_code(make_client, payload, status):
         assert json.loads(request.content) == {"p_solicitud_id": BOOKING_ID, "p_codigo": "123456"}
         return httpx.Response(200, json=payload)
 
-    response = make_client(handler).post(
+    response = make_client(handler, WORKER).post(
         f"/api/v1/solicitudes/{BOOKING_ID}/completar", headers=HEADERS, json={"codigo": "123456"}
     )
     assert response.status_code == status
@@ -389,9 +389,16 @@ def test_malformed_booking_response_is_controlled(make_client, payload):
     assert response.status_code == 502
 
 
-def test_worker_cannot_confirm_on_clients_behalf(make_client):
+def test_client_cannot_finish_on_workers_behalf(make_client):
     response = make_client(
-        lambda request: httpx.Response(200, json=[{**BOOKING, "estado": "EN_CURSO"}]), WORKER
+        lambda request: httpx.Response(200, json=[{**BOOKING, "estado": "EN_CURSO"}]), CLIENT
     ).post(f"/api/v1/solicitudes/{BOOKING_ID}/completar", headers=HEADERS,
            json={"codigo": "123456"})
+    assert response.status_code == 403
+
+
+def test_worker_cannot_generate_clients_code(make_client):
+    response = make_client(lambda request: pytest.fail("Worker must not reach RPC"), WORKER).post(
+        f"/api/v1/solicitudes/{BOOKING_ID}/codigo-confirmacion", headers=HEADERS,
+    )
     assert response.status_code == 403

@@ -1,4 +1,5 @@
-# Disposable Sprint 4 integration stack. No shared Supabase access or migrations.
+# Disposable booking/payment integration stack. No shared Supabase access or migrations.
+param([string]$PostgresImage = 'public.ecr.aws/supabase/postgres:17.6.1.166')
 $ErrorActionPreference = 'Stop'
 $reviewRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $reviewSupabase = Join-Path $reviewRoot 'supabase'
@@ -33,7 +34,7 @@ try {
         'run','-d','--pull=never','--name',$reviewPg,'--network',$reviewNetwork,
         '--tmpfs','/var/lib/postgresql/data','-e','POSTGRES_PASSWORD=sprint4-local-test',
         '--mount',"type=bind,source=$reviewSupabase,target=/fixtures,readonly",
-        '--entrypoint','docker-entrypoint.sh','public.ecr.aws/supabase/postgres:17.6.1.166',
+        '--entrypoint','docker-entrypoint.sh',$PostgresImage,
         'postgres','-c','listen_addresses=*'
     ) | Out-Null
     $createdPg = $true
@@ -47,6 +48,8 @@ try {
     if (-not $ready) { throw 'Temporary PostgreSQL did not become ready.' }
     Invoke-TestDocker -DockerArgs @('exec',$reviewPg,'psql','-U','postgres','-v','ON_ERROR_STOP=1',
                                   '-c','CREATE DATABASE sprint4_review') | Out-Null
+    Invoke-TestDocker -DockerArgs @('exec',$reviewPg,'psql','-U','postgres','-v','ON_ERROR_STOP=1',
+        '-c', 'DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=''anon'') THEN CREATE ROLE anon; END IF; IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=''authenticated'') THEN CREATE ROLE authenticated; END IF; END $$;') | Out-Null
     $fixture = Get-Content -LiteralPath (Join-Path $reviewSupabase 'tests/certifications_fixture.sql') |
         Where-Object { $_ -notmatch '^create role ' }
     $fixture | & docker exec -i $reviewPg psql -U postgres -d sprint4_review -v ON_ERROR_STOP=1 | Out-Null
@@ -60,7 +63,18 @@ try {
         'migrations/20261006220000_booking_operations.sql',
         'migrations/20261009200000_fix_booking_conflict_errors.sql',
         'tests/booking_operations_rules.sql',
-        'tests/booking_http_fixture.sql'
+        'tests/booking_http_fixture.sql',
+        'migrations/20261010120000_booking_client_and_service_commune.sql',
+        'migrations/20261010160000_worker_owned_workshop_commune.sql',
+        'migrations/20261013120000_simulated_payments.sql',
+        'tests/payments_rules.sql',
+        'tests/payment_http_setup.sql',
+        'migrations/20261013200000_client_confirmation_worker_completion.sql',
+        'tests/client_confirmation_rules.sql',
+        'migrations/20261013210000_temporary_service_chat.sql',
+        'tests/temporary_chat_rules.sql',
+        'migrations/20261013220000_service_reviews.sql',
+        'tests/reviews_rules.sql'
     )) { $migrationArgs += @('-f',"/fixtures/$file") }
     Invoke-TestDocker -DockerArgs $migrationArgs | Out-Null
     Invoke-TestDocker -DockerArgs @('network','connect',$reviewNetwork,$reviewApi)

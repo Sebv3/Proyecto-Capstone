@@ -28,7 +28,7 @@ No pretende cubrir todavía todas las funciones de una plataforma en producción
 - Crear y cancelar solicitudes.
 - Pagar mediante Mercado Pago Sandbox.
 - Consultar el estado y el historial de sus solicitudes.
-- Confirmar la finalización del servicio mediante un código.
+- Generar el código y entregarlo al trabajador para autorizar la finalización del servicio.
 - Calificar y escribir una reseña.
 
 ### Trabajador
@@ -41,7 +41,7 @@ No pretende cubrir todavía todas las funciones de una plataforma en producción
 - Aceptar o rechazar solicitudes.
 - Actualizar el estado de una solicitud según su modalidad.
 - Consultar su historial de trabajos.
-- Generar o consultar el código utilizado para confirmar la finalización.
+- Ingresar el código generado por el cliente y finalizar el servicio.
 
 ### Administrador
 
@@ -123,8 +123,8 @@ Los estados `RECHAZADA` y `CANCELADA` serán estados terminales alternativos.
 - Registro de tarifa base, comisión, total y estado del pago.
 - Actualización segura del resultado mediante webhook o validación desde el
   backend; el resultado informado por el teléfono no será suficiente.
-- Generación de un código de confirmación con expiración de 24 horas.
-- Finalización del servicio al validar correctamente el código.
+- Generación por el cliente de un código de confirmación con expiración de 24 horas.
+- Finalización por el trabajador al ingresar y validar correctamente el código del cliente.
 - Simulación académica de la liberación del ingreso al trabajador.
 
 ### Módulo 7: calificaciones

@@ -19,6 +19,7 @@ import { SessionLoadingScreen } from '../screens/SessionLoadingScreen';
 import { WorkerDocumentsScreen } from '../screens/WorkerDocumentsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { BookingTrackingScreen } from '../screens/BookingTrackingScreen';
+import { ServiceChatScreen } from '../screens/ServiceChatScreen';
 import { WorkerCertificationsContent } from '../screens/WorkerCertificationsScreen';
 import { ClientMainTabs, WorkerMainTabs } from './MainTabNavigators';
 
@@ -36,6 +37,7 @@ export type RootStackParamList = {
   NotificationBooking: { bookingId: string };
   NotificationCertifications: { categoryId?: string };
   NotificationProfile: undefined;
+  ServiceChat: { bookingId: string };
 };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const linking = {
@@ -153,6 +155,7 @@ export function RootNavigator() {
         }} />}
       </Stack.Screen>
       {!!user && <>
+        <Stack.Screen name="ServiceChat">{({ navigation, route }) => <ServiceChatScreen bookingId={route.params.bookingId} onBack={() => navigation.goBack()} />}</Stack.Screen>
         <Stack.Screen name="Notifications">{({ navigation }) => <NotificationsScreen onBack={() => navigation.goBack()} onOpen={(item) => {
           if (item.tipo === 'SOLICITUD') navigation.navigate('NotificationBooking', { bookingId: item.referencia_id });
           else if (item.tipo === 'CERTIFICACION' && user.rol === 'TRABAJADOR') navigation.navigate('NotificationCertifications', { categoryId: item.categoria_id ?? undefined });

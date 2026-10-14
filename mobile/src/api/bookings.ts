@@ -83,8 +83,8 @@ export function bookingOperationError(error: unknown): string {
       case 401: return 'Tu sesión venció. Inicia sesión para continuar.';
       case 403: return 'No tienes permiso para realizar esta acción en la solicitud.';
       case 404: return 'Solicitud no encontrada o fuera de tu cuenta.';
-      case 409: return error.response.data?.detail === 'Código incorrecto, vencido o bloqueado; consulta al trabajador'
-        ? 'El código es incorrecto, venció o está bloqueado. Consulta al trabajador.'
+      case 409: return error.response.data?.detail === 'Código incorrecto, vencido o bloqueado; consulta al cliente'
+        ? 'El código es incorrecto, venció o está bloqueado. Consulta al cliente.'
         : 'El estado o el horario cambió y esta acción ya no está disponible. Actualiza la solicitud.';
       case 422: return 'Revisa los datos, el motivo o el código ingresado.';
       case 503: return 'Las solicitudes no están disponibles todavía. Inténtalo más tarde.';

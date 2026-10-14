@@ -8,6 +8,7 @@ import { bookingErrorMessage, getAvailability, type Availability } from '../api/
 import { firstBookingStart, formatBookingDate } from '../services/bookingForm';
 import { formatCatalogPrice } from '../services/catalogFilters';
 import { bookingStyles as styles } from '../components/bookingStyles';
+import { WorkerReviewsCard } from '../components/WorkerReviewsCard';
 
 export function ServiceDetailScreen({ serviceId, onBack, onSchedule }: {
   serviceId: string; onBack: () => void; onSchedule: () => void;
@@ -78,6 +79,7 @@ export function ServiceDetailScreen({ serviceId, onBack, onSchedule }: {
             <Text style={styles.text}>{service.ubicacion_publica}</Text>
             {service.modalidad === 'DOMICILIO' && service.radio_cobertura_km != null && <Text style={styles.hint}>Cobertura declarada: {service.radio_cobertura_km} km desde el punto de referencia.</Text>}
           </View>}
+          <WorkerReviewsCard workerId={service.trabajador.id} />
           <Text style={styles.eyebrow}>DISPONIBILIDAD</Text>
           <View style={styles.card}>
             {availabilityError ? <Text accessibilityRole="alert" style={styles.error}>{availabilityError}</Text> : !blocks.length ? <Text style={styles.text}>El trabajador aún no tiene horarios publicados para este servicio.</Text>

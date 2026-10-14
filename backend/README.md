@@ -1,5 +1,106 @@
 # ServiMatch API
 
+## SCRUM-55: calificaciones
+
+Requiere `20261013220000_service_reviews.sql`, posterior a solicitudes y previa
+revisión del equipo antes de aplicarla al Supabase compartido.
+
+- `POST /api/v1/solicitudes/{id}/calificacion`: `{ "puntuacion": 5, "comentario": "Buen trabajo" }`.
+  Solo CLIENTE activo dueño de una solicitud COMPLETADA. Puntuación entera de
+  1–5 y comentario opcional de hasta 1000 caracteres; vacío se guarda como null.
+  Identidades y servicio se toman de la solicitud. Devuelve 201 al crear y 200
+  al reintentar exactamente el mismo contenido; cambiar una reseña existente es 409.
+- `GET /api/v1/solicitudes/{id}/calificacion`: participantes activos; devuelve
+  la calificación o null si todavía no existe. No expone solicitudes ajenas.
+- `GET /api/v1/trabajadores/{id}/calificaciones?limit=20&offset=0`: proyección
+  pública del trabajador activo y verificado, promedio, cantidad y lista paginada.
+  No devuelve nombres ni IDs de clientes, solicitudes, direcciones o documentos.
+  Sin opiniones, promedio null y cantidad 0.
+
+Una reseña por solicitud, sin edición o eliminación por las cuentas de la app.
+La tabla tiene RLS y las escrituras se realizan mediante RPC. Las reseñas quedan
+conservadas después del servicio; la eliminación del chat no las afecta.
+No se incluye moderación automática, que está fuera del alcance del MVP.
+
+Pruebas: `pytest tests/test_reviews.py`; el script de integración ejecuta
+`tests/reviews_rules.sql` y recorre finalizar → calificar en ambas modalidades,
+incluyendo dos envíos concurrentes, autoría y privacidad de la proyección pública.
+
+## SCRUM-53: conversaciones temporales
+
+Aplicar `20261013210000_temporary_service_chat.sql` después de las migraciones
+de solicitudes; revisar con el equipo antes de aplicarla al Supabase compartido.
+Las tablas `conversaciones` y `mensajes` tienen RLS, una conversación por solicitud
+y escritura exclusiva mediante RPC autenticado. Solo los participantes activos
+pueden acceder, incluso desde PostgREST directo. No hay historial de versiones.
+
+- `POST /solicitudes/{id}/chat`: abrir o reutilizar la conversación.
+- `GET /solicitudes/{id}/chat?limit=50&offset=0`: leer sin crear; devuelve los
+  mensajes más recientes en orden cronológico dentro de la página y `has_more`.
+- `POST /solicitudes/{id}/chat/mensajes`: `{ "id": "UUID", "contenido": "Texto" }`.
+  El UUID permite reintentar un envío sin duplicarlo; el autor viene de la sesión.
+- `PATCH /solicitudes/{id}/chat/mensajes/{mensaje_id}`: reemplazar contenido propio.
+- `DELETE /solicitudes/{id}/chat/mensajes/{mensaje_id}`: eliminar mensaje propio.
+
+Textos de 1–2000 caracteres. Al pasar a COMPLETADA, CANCELADA o RECHAZADA, un
+trigger elimina la conversación y sus mensajes dentro de la transacción del
+servicio. El chat cerrado devuelve 410 y no puede reabrirse. Los datos no se
+registran en notificaciones ni logs de contenido; las copias de respaldo del
+proveedor siguen su propia política de retención.
+
+Validación: `pytest tests/test_chat.py` y el script de integración aislada, que
+incluye pruebas SQL de RLS, autoría, paginación, reintentos y eliminación física.
+
+## Finalización autorizada por el cliente
+
+`20261013200000_client_confirmation_worker_completion.sql` invierte los permisos
+de los códigos: `POST /solicitudes/{id}/codigo-confirmacion` requiere al cliente
+dueño activo; `POST /solicitudes/{id}/completar` requiere al trabajador dueño activo
+y `{ "codigo": "012345" }`. Actualizar API y móvil junto con la migración, previa
+revisión del equipo. Se permiten EN_CURSO en domicilio y LISTO en taller.
+Los códigos pendientes anteriores vencen para que el cliente genere uno nuevo;
+se conservan historial, límite de cinco intentos y expiración de 24 horas.
+La validación correcta completa la solicitud; la liberación simulada del ingreso
+sigue pendiente. El script de integración incluye ambas modalidades y pruebas SQL
+de permisos, vencimiento y bloqueo del código.
+
+## SCRUM-54: pagos simulados
+
+Requiere `20261013120000_simulated_payments.sql`, después de las migraciones
+de solicitudes y comunas. Revisar con el equipo antes de aplicar al Supabase compartido.
+
+- `GET /api/v1/solicitudes/{id}/pago`: desglose calculado en el servidor y
+  comprobante si existe; acceso exclusivo de participantes activos.
+- `POST /api/v1/solicitudes/{id}/pago/simular`: cuerpo `{}`, solo CLIENTE dueño.
+  Una solicitud ACEPTADA y futura pasa a PAGADA y recibe un pago APROBADO
+  en la misma transacción. No acepta montos, identidades ni estados del móvil.
+
+El total es tarifa base de la solicitud + comisión del 15 %. Se usan CLP enteros
+y redondeo al peso más cercano, con medio peso hacia arriba: $20.000 + $3.000 =
+$23.000; una tarifa de $10 produce $2 de comisión. El ingreso simulado del
+trabajador corresponde a la tarifa base. `simulado=true` es obligatorio: no hay
+cobros, transferencias ni integración con Mercado Pago en este incremento.
+
+Hay un pago por solicitud. Reintentar devuelve el mismo comprobante y el estado
+actual, incluso si el servicio ya avanzó. Pago y cancelación comparten bloqueos:
+solo uno puede prosperar; después de pagar se mantiene bloqueada la cancelación
+hasta implementar reembolsos. Una solicitud PAGADA antigua sin comprobante no
+recibe un pago retroactivo automáticamente.
+
+Pruebas HTTP: `docker compose exec api pytest tests/test_payments.py`.
+Pruebas SQL y recorridos completos con PostgreSQL/PostgREST desechables:
+
+```powershell
+# Requiere ambas imágenes locales; nunca apunta a Supabase compartido.
+docker pull postgres:16-alpine
+docker pull public.ecr.aws/supabase/postgrest:v14.5
+./backend/scripts/test_sprint4_integration.ps1 -PostgresImage postgres:16-alpine
+```
+
+El script incluye las migraciones de comunas, reglas de pagos, pruebas de
+concurrencia y finalización de ambas modalidades. Elimina sus contenedores al
+terminar. Las fixtures y funciones de pruebas nunca se aplican al entorno compartido.
+
 Las nuevas solicitudes a domicilio requieren `comuna_servicio_id` (comuna activa).
 En taller se toma la comuna de la publicación; el cliente puede omitir ese campo
 y se rechaza si envía una comuna diferente. La migración
