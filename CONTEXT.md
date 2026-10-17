@@ -431,13 +431,4 @@ Al trabajar en este proyecto, ten en cuenta:
 8. **Admin manual:** Verificaciones, certificaciones, disputas y soporte son gestionados manualmente por el administrador.
 9. **Alcance del MVP:** Consultar `MVP.md` antes de implementar una funcionalidad. Lo que figure fuera de alcance se posterga salvo decisión explícita del equipo.
 10. **Base móvil:** El MVP utilizará Expo con React Native y TypeScript, manteniendo React Navigation.
-# Implementación SCRUM-58 y SCRUM-59 (16-10-2026)
 
-SCRUM-58 reutiliza la calificación de SCRUM-55 dentro del seguimiento COMPLETADA:
-estrellas 1–5 interactivas, comentario opcional, una reseña por solicitud.
-SCRUM-59 agrega pantalla Ganancias del trabajador, resumen y gráfico diarios por mes,
-detalle paginado y pagos en curso separados. Usa tarifa base de pagos simulados
-aprobados, nunca saldo retirable. Ganancia por fecha terminal `actualizado_en`;
-en curso por fecha agendada `inicio_en`; ambos en America/Santiago.
-RPC `consultar_ganancias_trabajador` limitada al trabajador autenticado activo.
-Migración nueva `20261016120000_worker_earnings.sql`: requiere aprobación antes del remoto.
