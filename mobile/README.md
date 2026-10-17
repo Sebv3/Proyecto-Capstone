@@ -375,3 +375,19 @@ Requiere la migración `20261013120000_simulated_payments.sql` y la API actualiz
 3. Simular pago; actualizar y comprobar que conserva el mismo comprobante.
 4. Como trabajador, avanzar; como cliente, generar el código; como trabajador, ingresarlo y finalizar.
 5. Repetir en TALLER; comprobar permisos de otra cuenta y reintento tras perder conexión.
+# Calificaciones y ganancias (SCRUM-58/59)
+
+La calificación permanece en el seguimiento de una solicitud COMPLETADA: cliente
+selecciona 1–5 estrellas, escribe un comentario opcional y envía una única reseña.
+El trabajador puede leerla; el promedio se muestra en el detalle del servicio.
+
+La pestaña Ganancias del trabajador y el acceso del inicio abren el resumen mensual
+de ganancias simuladas. Incluye selector de mes, gráfico diario desplazable con
+barras seleccionables y detalle paginado de 20 movimientos. El total utiliza la tarifa
+base de servicios pagados y completados, por fecha de finalización en horario de Chile.
+Los servicios pagados aún en curso se muestran por mes agendado y no se suman al total.
+No representa saldo disponible ni ejecuta transferencias.
+
+Comprobar mes vacío, cambio de año, volver a la pantalla tras completar un servicio,
+actualización manual y error/reintento. `npm run test:earnings` verifica fechas,
+formato CLP, sesión, paginación y errores; `npm run test:reviews` cubre la API de reseñas.

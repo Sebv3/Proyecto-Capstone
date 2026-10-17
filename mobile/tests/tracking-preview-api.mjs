@@ -2,6 +2,7 @@
 import http from 'node:http';
 const client = '55555555-5555-4555-8555-555555555555';
 const worker = '11111111-1111-4111-8111-111111111111';
+const workerPreview = process.env.PREVIEW_ROLE === 'TRABAJADOR';
 const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(15, 0, 0, 0);
 const booking = { id: '2847aaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', servicio_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', cliente_id: client, trabajador_id: worker,
   cliente_nombre: 'Ana González', servicio_nombre: 'Destape de cañerías', precio_base: 25000, duracion_estimada_minutos: 60, modalidad: 'DOMICILIO', inicio_en: tomorrow.toISOString(),
@@ -23,7 +24,20 @@ http.createServer(async (req, res) => {
   const path = url.pathname.replace('/api/v1', '');
   let result = {}, status = 200;
   if (path === '/auth/login' || path === '/auth/refresh') result = { access_token: 'preview-only', refresh_token: 'preview-only', token_type: 'bearer', expires_in: 3600 };
-  else if (path === '/auth/me') result = { user: { id: client, nombre: 'Ana González', email: 'preview@example.test', telefono: null, rol: 'CLIENTE', activo: true } };
+  else if (path === '/auth/me') result = { user: { id: workerPreview ? worker : client, nombre: workerPreview ? 'Juan Pérez' : 'Ana González', email: 'preview@example.test', telefono: null, rol: workerPreview ? 'TRABAJADOR' : 'CLIENTE', activo: true } };
+  else if (path === '/perfiles/trabajador') result = { usuario_id: worker, direccion_base: 'Dirección ficticia', comuna: { id: 'demo', nombre: 'Santiago' } };
+  else if (path === '/verificaciones/trabajador') result = { trabajador_id: worker, estado: 'APROBADA' };
+  else if (path === '/trabajador/servicios' || path === '/solicitudes/proximas') result = [];
+  else if (path === '/trabajadores/me/ganancias') {
+    const month = url.searchParams.get('mes'); const offset = Number(url.searchParams.get('offset') || 0);
+    const days = new Date(Number(month.slice(0, 4)), Number(month.slice(-2)), 0).getDate();
+    const amounts = { 3: 25000, 7: 18000, 12: 40000, 16: 30000 };
+    const populated = month === new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit' }).format(new Date());
+    const items = populated ? Object.entries(amounts).map(([day, monto]) => ({ solicitud_id: `demo-${day}`, servicio_nombre: day === '3' ? 'Destape de cañerías' : 'Reparación del hogar', estado: 'COMPLETADA', monto, fecha: `${month}-${day.padStart(2,'0')}T15:00:00Z`, completada: true })) : [];
+    if (populated) items.push({ solicitud_id: 'demo-pending', servicio_nombre: 'Instalación de grifería', estado: 'PAGADA', monto: 25000, fecha: `${month}-25T15:00:00Z`, completada: false });
+    result = { mes: month, moneda: 'CLP', simulado: true, total_completado: populated ? 113000 : 0, cantidad_completada: populated ? 4 : 0, total_en_curso: populated ? 25000 : 0, cantidad_en_curso: populated ? 1 : 0,
+      dias: Array.from({ length: days }, (_, i) => ({ fecha: `${month}-${String(i+1).padStart(2,'0')}`, monto: populated ? amounts[i+1] || 0 : 0 })), items: items.reverse().slice(offset, offset+20), limit: 20, offset, has_more: false };
+  }
   else if (path === '/solicitudes') result = [booking];
   else if (path === `/solicitudes/${booking.id}`) result = booking;
   else if (path === '/categorias' || path === '/notificaciones') result = [];

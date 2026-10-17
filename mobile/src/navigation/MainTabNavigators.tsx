@@ -6,7 +6,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
 import type { WorkerVerification } from '../api/workerVerification';
 import { ClientHomeScreen } from '../screens/ClientHomeScreen';
-import { ComingSoonScreen } from '../screens/ComingSoonScreen';
+import { WorkerEarningsScreen } from '../screens/WorkerEarningsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { WorkerHomeScreen } from '../screens/WorkerHomeScreen';
 import { PublishServiceScreen } from '../screens/PublishServiceScreen';
@@ -200,13 +200,13 @@ export type WorkerHomeStackParamList = {
 };
 const WorkerHomeStack = createNativeStackNavigator<WorkerHomeStackParamList>();
 
-function WorkerHomeNavigator({ verification, onRefresh, onAgenda }: {
-  verification: WorkerVerification; onRefresh: () => void; onAgenda: () => void;
+function WorkerHomeNavigator({ verification, onRefresh, onAgenda, onEarnings }: {
+  verification: WorkerVerification; onRefresh: () => void; onAgenda: () => void; onEarnings: () => void;
 }) {
   return <WorkerHomeStack.Navigator screenOptions={{ headerShown: false }}>
     <WorkerHomeStack.Screen name="WorkerDashboard">
       {({ navigation, route }) => <WorkerHomeScreen verification={verification} onRefresh={onRefresh}
-        onAgenda={onAgenda} onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })}
+        onAgenda={onAgenda} onEarnings={onEarnings} onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })}
         onPublish={() => navigation.navigate('PublishService')}
         onEdit={(serviceId) => navigation.navigate('PublishService', { serviceId })}
         onCertifications={() => navigation.navigate('WorkerCertifications')}
@@ -229,6 +229,7 @@ export function WorkerMainTabs({
       title: 'Inicio', tabBarIcon: tabIcon('home', 'home-outline'),
     }}>
       {({ navigation }) => <WorkerHomeNavigator verification={verification} onRefresh={onRefresh}
+        onEarnings={() => navigation.navigate('WorkerEarnings')}
         onAgenda={() => navigation.navigate('WorkerAgenda', { screen: 'AgendaHome', params: { reservations: true, requestKey: Date.now() } })} />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerAgenda" options={{
@@ -244,7 +245,7 @@ export function WorkerMainTabs({
     <WorkerTab.Screen name="WorkerEarnings" options={{
       title: 'Ganancias', tabBarIcon: tabIcon('wallet', 'wallet-outline'),
     }}>
-      {() => <ComingSoonScreen title="Ganancias" />}
+      {() => <WorkerEarningsScreen />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerProfile" component={ProfileScreen} options={{
       title: 'Perfil', tabBarIcon: tabIcon('person', 'person-outline'),

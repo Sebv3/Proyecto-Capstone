@@ -257,3 +257,17 @@ contraseñas diferentes y reenvío tras 60 segundos. Si el envío falla, revisar
 destinatarios permitidos y límites de envío de Supabase. Si la actualización falla después
 de verificar el código, solicitar otro: el código anterior ya fue consumido.
 
+# Ganancias simuladas (SCRUM-59)
+
+La migración `20261016120000_worker_earnings.sql` agrega únicamente una consulta
+de lectura `consultar_ganancias_trabajador(date,integer,integer)`. No cambia pagos,
+estados ni saldos. Requiere trabajador activo y deriva su identidad de `auth.uid()`.
+Se debe revisar y aprobar antes de aplicar a la base compartida.
+
+Calcula resumen mensual y días completos (incluidos los días sin ingresos) en
+America/Santiago; el detalle está paginado. Las ganancias corresponden a tarifa base
+de pagos simulados aprobados con solicitud COMPLETADA, por fecha de finalización
+`actualizado_en` (estado terminal). Los pagos en curso se agrupan por `inicio_en`
+y se mantienen aparte. `tests/earnings_rules.sql` verifica aislamiento, roles,
+cancelaciones, impagos, límites de mes, año bisiesto y paginación en base desechable.
+

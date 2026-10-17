@@ -18,12 +18,13 @@ function formatPrice(price: number): string {
 }
 
 export function WorkerHomeScreen({
-  verification, onRefresh, onPublish, onEdit, onCertifications, publishedServiceName, updatedServiceName, onDismissSuccess, onBooking, onAgenda,
+  verification, onRefresh, onPublish, onEdit, onCertifications, publishedServiceName, updatedServiceName, onDismissSuccess, onBooking, onAgenda, onEarnings,
 }: {
   verification: WorkerVerification; onRefresh: () => void; onPublish: () => void;
   onCertifications: () => void;
   onEdit: (serviceId: string) => void;
   onBooking: (bookingId: string) => void; onAgenda: () => void;
+  onEarnings: () => void;
   publishedServiceName?: string; updatedServiceName?: string; onDismissSuccess: () => void;
 }) {
   const { user, withAccessToken } = useAuth();
@@ -201,13 +202,13 @@ export function WorkerHomeScreen({
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionLabel}>GANANCIAS</Text>
       </View>
-      <View style={styles.comingCard}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Ver mis ganancias" onPress={onEarnings} style={styles.comingCard}>
         <Ionicons name="bar-chart-outline" size={30} color="#82918B" />
         <View>
           <Text style={styles.infoTitle}>Estadísticas de trabajo</Text>
-          <Text style={styles.hint}>Ganancias · Próximamente</Text>
+          <Text style={styles.hint}>Ver ganancias simuladas y servicios completados</Text>
         </View>
-      </View>
+      </Pressable>
 
       <View style={[styles.sectionHeader, styles.upcomingHeader]}>
         <Text accessibilityRole="header" style={styles.sectionLabel}>PRÓXIMAS CITAS</Text>

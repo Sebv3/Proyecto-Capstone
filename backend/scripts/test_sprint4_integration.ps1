@@ -74,7 +74,9 @@ try {
         'migrations/20261013210000_temporary_service_chat.sql',
         'tests/temporary_chat_rules.sql',
         'migrations/20261013220000_service_reviews.sql',
-        'tests/reviews_rules.sql'
+        'tests/reviews_rules.sql',
+        'migrations/20261016120000_worker_earnings.sql',
+        'tests/earnings_rules.sql'
     )) { $migrationArgs += @('-f',"/fixtures/$file") }
     Invoke-TestDocker -DockerArgs $migrationArgs | Out-Null
     Invoke-TestDocker -DockerArgs @('network','connect',$reviewNetwork,$reviewApi)

@@ -304,3 +304,15 @@ posterior a la hora UTC del servidor y estados ACEPTADA/PAGADA/EN_CAMINO/EN_CURS
 LISTO. Estos filtros se aplican antes de la paginación, ordenada por inicio e ID.
 El inicio móvil usa `limit=3`; una fecha `desde` anterior al presente no permite
 incluir citas pasadas. No modifica la consulta histórica de Agenda.
+# Ganancias del trabajador (SCRUM-59)
+
+`GET /api/v1/trabajadores/me/ganancias?mes=2026-10&limit=20&offset=0` requiere una
+sesión de trabajador activo. La identidad proviene del JWT; no recibe otro trabajador.
+Requiere `20261016120000_worker_earnings.sql` (aprobación previa antes de aplicar al remoto).
+
+El resumen y gráfico incluyen únicamente pagos simulados aprobados de solicitudes
+COMPLETADA, por la fecha terminal `actualizado_en` en `America/Santiago`. Se suma la
+tarifa base del comprobante, sin restar el 15 % adicional pagado por el cliente.
+Los servicios PAGADA/EN_CAMINO/EN_CURSO/LISTO se presentan aparte según el mes de
+`inicio_en`. Canceladas, rechazadas y solicitudes sin pago quedan excluidas.
+La paginación del detalle no modifica los totales ni los días del gráfico.

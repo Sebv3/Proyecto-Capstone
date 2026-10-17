@@ -41,6 +41,7 @@
     "test:payments": "node --experimental-strip-types --test tests/payments.test.mjs",
     "test:chat": "node --experimental-strip-types --test tests/chat.test.mjs",
     "test:reviews": "node --experimental-strip-types --test tests/reviews.test.mjs",
+    "test:earnings": "node --experimental-strip-types --test tests/earnings.test.mjs",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

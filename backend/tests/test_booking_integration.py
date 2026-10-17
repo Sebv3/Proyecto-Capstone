@@ -13,6 +13,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -159,6 +160,17 @@ def test_complete_lifecycle_uses_real_rpc_and_code(integration, service, steps):
                   {"codigo": code.json()["codigo"]}).status_code == 403
     result = action(api, booking, "completar", WORKER, {"codigo": code.json()["codigo"]})
     assert result.status_code == 200 and result.json()["estado"] == "COMPLETADA", result.text
+    month = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m")
+    earnings_path = f"/api/v1/trabajadores/me/ganancias?mes={month}"
+    earnings = api.get(earnings_path, headers=headers(WORKER))
+    assert earnings.status_code == 200, earnings.text
+    summary = earnings.json()
+    assert summary["total_completado"] == booking["precio_base"]
+    assert summary["cantidad_completada"] == 1 and summary["total_en_curso"] == 0
+    assert sum(day["monto"] for day in summary["dias"]) == booking["precio_base"]
+    assert summary["items"][0]["solicitud_id"] == booking["id"]
+    assert api.get(earnings_path, headers=headers(OTHER_WORKER)).json()["items"] == []
+    assert api.get(earnings_path, headers=headers(CLIENT)).status_code == 403
     assert api.get(chat_path, headers=headers(CLIENT)).status_code == 410
     review_path = f"/api/v1/solicitudes/{booking['id']}/calificacion"
     review = api.post(review_path, headers=headers(CLIENT), json={
