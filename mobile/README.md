@@ -391,3 +391,28 @@ No representa saldo disponible ni ejecuta transferencias.
 Comprobar mes vacío, cambio de año, volver a la pantalla tras completar un servicio,
 actualización manual y error/reintento. `npm run test:earnings` verifica fechas,
 formato CLP, sesión, paginación y errores; `npm run test:reviews` cubre la API de reseñas.
+## Checkout Pro en Expo Go (SCRUM-74)
+
+El seguimiento consulta el modo de pago al backend. Con Mercado Pago activo, el
+cliente de una solicitud ACEPTADA ve el desglose y **Pagar con Mercado Pago**.
+Se abre el `init_point` oficial HTTPS con `expo-web-browser` (Safari View Controller
+en iOS y Custom Tabs en Android, incluido en Expo Go). Web conserva `expo-linking`.
+Esto evita delegar inicialmente el enlace universal a la app de Mercado Pago.
+No se guarda Access Token/Public Key en el móvil ni se necesita compilar un módulo propio.
+Al cerrar el navegador en iOS se solicita conciliación explícita: el cierre nunca
+se interpreta como aprobación. Fallos al abrir o un navegador bloqueado muestran
+un mensaje de apertura, separado de los errores del pago.
+
+Usar únicamente el comprador y tarjetas de prueba. La página de retorno invita a
+regresar manualmente a Expo Go; al recuperar foco o pasar a primer plano, la app
+consulta y concilia el resultado. También ofrece **Consultar estado del pago**.
+Se pausa al salir de la pantalla y no ejecuta polling en segundo plano.
+PENDIENTE oculta la opción de pagar nuevamente; RECHAZADO permite reabrir el mismo
+checkout; APROBADO actualiza el seguimiento y muestra el comprobante; REVISION
+indica contactar al administrador sin volver a pagar.
+
+`MERCADO_PAGO_ENABLED=false` conserva la pantalla de simulación académica previa.
+Una solicitud ya vinculada al checkout no puede usar el RPC de simulación para saltarlo.
+Ejecutar `npm run test:mercadopago` y `npm run typecheck`.
+La API de vista previa admite `PREVIEW_MERCADOPAGO=true`; sus datos y endpoints `/qa/*`
+son ficticios, no forman parte del backend de ServiMatch ni escriben en Supabase.

@@ -36,6 +36,7 @@ create function public.test_reset_bookings() returns void language plpgsql
 security definer set search_path='' as $$ begin
     if not public.es_admin() then raise insufficient_privilege; end if;
     if to_regclass('public.calificaciones') is not null then execute 'delete from public.calificaciones'; end if;
+    if to_regclass('public.checkout_mercadopago') is not null then execute 'delete from public.checkout_mercadopago'; end if;
     -- payments is introduced after this fixture; resolve the table at execution time.
     if to_regclass('public.pagos') is not null then execute 'delete from public.pagos'; end if;
     delete from public.confirmaciones_solicitud;

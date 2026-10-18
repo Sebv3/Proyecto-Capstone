@@ -20,6 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.mercadopago import get_mercadopago, get_payment_store
 from app.services.supabase_auth import SupabaseAuthGateway, get_auth_gateway
 
 URL = os.getenv("BOOKING_INTEGRATION_URL", "")
@@ -39,9 +40,9 @@ def _b64(value):
     return base64.urlsafe_b64encode(value).rstrip(b"=").decode()
 
 
-def token(user_id):
+def token(user_id, role="authenticated"):
     header = _b64(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
-    body = _b64(json.dumps({"sub": user_id, "role": "authenticated",
+    body = _b64(json.dumps({"sub": user_id, "role": role,
                            "exp": int(time.time()) + 3600}).encode())
     message = f"{header}.{body}"
     return message + "." + _b64(hmac.digest(SECRET.encode(), message.encode(), hashlib.sha256))
@@ -52,7 +53,8 @@ def headers(user_id):
 
 
 @pytest.fixture
-def integration():
+def integration(monkeypatch):
+    monkeypatch.setenv("MERCADO_PAGO_ENABLED", "false")
     assert URL == LOCAL_URL, "Integration writes are restricted to the disposable test stack"
     with httpx.Client(base_url=URL, timeout=10) as direct:
         result = direct.post("/rpc/test_reset_bookings", headers=headers(ADMIN), json={})
@@ -93,6 +95,7 @@ def integration():
     try:
         with TestClient(app) as api:
             api.integration_race_ids = race_ids
+            api.integration_gateway = gateway
             yield api
             # Close on the same event loop used for real network requests.
             api.portal.call(remote.aclose)
@@ -393,3 +396,107 @@ def test_completed_review_concurrent_retries_and_public_privacy(integration):
         assert direct.get("/calificaciones", headers=headers(OTHER_CLIENT)).json() == []
         assert direct.patch("/calificaciones", headers=headers(CLIENT),
                             json={"puntuacion": 1}).status_code == 403
+
+
+@pytest.mark.parametrize("service,steps", [
+    (HOME, ["en-camino", "iniciar"]), (SHOP, ["iniciar", "listo"]),
+])
+@pytest.mark.parametrize("cancelled", [False, True])
+@pytest.mark.parametrize("provider_live_mode", [False, True])
+def test_mp_checkout_reconciliation_real_database(
+    integration, monkeypatch, service, steps, cancelled, provider_live_mode,
+):
+    api = integration
+    monkeypatch.setenv("MERCADO_PAGO_ENABLED", "true")
+    monkeypatch.setenv("MERCADO_PAGO_WEBHOOK_SECRET", "isolated-webhook-secret")
+    monkeypatch.setenv("MERCADO_PAGO_PUBLIC_URL", "https://backend.example.test")
+    start, _ = schedule(api, service)
+    booking = create(api, start, service)
+    assert action(api, booking, "aceptar").status_code == 200
+    path = f"/api/v1/solicitudes/{booking['id']}/pago/mercadopago"
+
+    class Provider:
+        reference = None
+        creates = 0
+        status = "pending"
+
+        async def test_seller(self):
+            return "123"
+
+        async def request(self, method, path, **kwargs):
+            if method == "POST":
+                assert path == "/checkout/preferences"
+                self.creates += 1
+                self.reference = kwargs["json"]["external_reference"]
+                return {"id": "pref-isolated", "collector_id": 123,
+                    "external_reference": self.reference,
+                    "init_point": "https://www.mercadopago.cl/checkout/v1/redirect?pref_id=test"}
+            if path == "/v1/payments/search":
+                return {"results": [{"id": 9001}], "paging": {"total": 1}}
+            if path == "/checkout/preferences/pref-isolated":
+                return {"id": "pref-isolated", "collector_id": 123,
+                        "external_reference": self.reference,
+                        "init_point": "https://www.mercadopago.cl/checkout/v1/redirect?pref_id=test"}
+            if path == "/users/789":
+                return {"id": 789, "site_id": "MLC", "nickname": "TESTUSER789"}
+            assert path == "/v1/payments/9001"
+            return {"id": 9001, "external_reference": self.reference, "collector_id": 123,
+                "transaction_amount": booking["precio_base"] * 115 // 100,
+                "currency_id": "CLP", "live_mode": provider_live_mode, "status": self.status,
+                "payer": {"id": 789, "email": "test_user_789@testuser.com"},
+                "date_approved": (datetime.now(UTC).isoformat()
+                                  if self.status == "approved" else None),
+                "date_last_updated": datetime.now(UTC).isoformat()}
+
+    class Store:
+        async def request(self, method, path, **kwargs):
+            return await api.integration_gateway.request(method, path,
+                extra_headers={"Authorization": "Bearer " + token(ADMIN, "service_role")}, **kwargs)
+
+    provider = Provider()
+    app.dependency_overrides[get_mercadopago] = lambda: provider
+    app.dependency_overrides[get_payment_store] = lambda: Store()
+    try:
+        with ThreadPoolExecutor(2) as pool:
+            created = list(pool.map(lambda _: api.post(path, headers=headers(CLIENT), json={}),
+                                    range(2)))
+        assert any(result.status_code == 200 for result in created)
+        assert all(result.status_code in (200, 409) for result in created)
+        assert provider.creates == 1
+        assert api.post(f"/api/v1/solicitudes/{booking['id']}/pago/simular",
+                        headers=headers(CLIENT), json={}).status_code == 409
+        pending = api.post(path + "/sincronizar", headers=headers(CLIENT), json={})
+        assert pending.status_code == 200 and pending.json()["estado"] == "PENDIENTE"
+        if cancelled:
+            assert api.post(f"/api/v1/solicitudes/{booking['id']}/cancelar",
+                            headers=headers(CLIENT),
+                            json={"motivo": "Cambio de planes"}).status_code == 200
+        provider.status = "approved"
+        updated = api.post(path + "/sincronizar", headers=headers(CLIENT), json={})
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["estado"] == ("REVISION" if cancelled else "APROBADO")
+        digest = hmac.new(b"isolated-webhook-secret",
+            b"id:9001;request-id:isolated-test;ts:1234567890;", hashlib.sha256).hexdigest()
+        for _ in range(2):
+            event = api.post("/api/v1/pagos/mercadopago/webhook?data.id=9001&type=payment",
+                headers={"x-request-id": "isolated-test",
+                         "x-signature": f"ts=1234567890,v1={digest}"}, json={})
+            assert event.status_code == 200, event.text
+        summary = api.get(f"/api/v1/solicitudes/{booking['id']}/pago",
+                          headers=headers(CLIENT)).json()
+        if cancelled:
+            assert summary["pago"] is None
+        else:
+            assert summary["pago"]["proveedor"] == "MERCADO_PAGO_TEST"
+            assert summary["pago"]["proveedor_pago_id"] == "9001"
+            for step in steps:
+                assert action(api, booking, step).status_code == 200
+            code = action(api, booking, "codigo-confirmacion", CLIENT).json()["codigo"]
+            assert action(api, booking, "completar", WORKER, {"codigo": code}).status_code == 200
+            month = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m")
+            earnings = api.get("/api/v1/trabajadores/me/ganancias?mes=" + month,
+                               headers=headers(WORKER)).json()
+            assert earnings["total_completado"] == booking["precio_base"]
+    finally:
+        app.dependency_overrides.pop(get_mercadopago, None)
+        app.dependency_overrides.pop(get_payment_store, None)

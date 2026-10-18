@@ -3,6 +3,8 @@ import http from 'node:http';
 const client = '55555555-5555-4555-8555-555555555555';
 const worker = '11111111-1111-4111-8111-111111111111';
 const workerPreview = process.env.PREVIEW_ROLE === 'TRABAJADOR';
+const mpPreview = process.env.PREVIEW_MERCADOPAGO === 'true';
+let checkout = null;
 const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(15, 0, 0, 0);
 const booking = { id: '2847aaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', servicio_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', cliente_id: client, trabajador_id: worker,
   cliente_nombre: 'Ana González', servicio_nombre: 'Destape de cañerías', precio_base: 25000, duracion_estimada_minutos: 60, modalidad: 'DOMICILIO', inicio_en: tomorrow.toISOString(),
@@ -39,6 +41,14 @@ http.createServer(async (req, res) => {
       dias: Array.from({ length: days }, (_, i) => ({ fecha: `${month}-${String(i+1).padStart(2,'0')}`, monto: populated ? amounts[i+1] || 0 : 0 })), items: items.reverse().slice(offset, offset+20), limit: 20, offset, has_more: false };
   }
   else if (path === '/solicitudes') result = [booking];
+  else if (path === '/pagos/configuracion') result = { modo: mpPreview ? 'MERCADO_PAGO_TEST' : 'SIMULADO' };
+  else if (path.includes('/pago/mercadopago')) {
+    if (req.method === 'POST' && !path.endsWith('/sincronizar')) checkout = {
+      id: '88888888-8888-4888-8888-888888888888', solicitud_id: booking.id, estado: 'LISTO',
+      checkout_url: 'https://www.mercadopago.cl/checkout/v1/redirect?pref_id=fake-preview-only', expira_en: tomorrow.toISOString(),
+    };
+    result = checkout;
+  }
   else if (path === `/solicitudes/${booking.id}`) result = booking;
   else if (path === '/categorias' || path === '/notificaciones') result = [];
   else if (path === '/servicios') result = { items: [], total: 0, limit: 5, offset: 0 };
@@ -68,7 +78,20 @@ http.createServer(async (req, res) => {
       }
     } else result = review;
   } else if (path.includes('/calificaciones')) result = { trabajador_id: worker, promedio: review?.puntuacion ?? null, cantidad: review ? 1 : 0, items: review ? [review] : [], limit: 20, offset: 0, has_more: false };
-  else if (path.endsWith('/pago')) result = { tarifa_base: 25000, comision: 3750, monto_total: 28750, moneda: 'CLP', simulado: true, pago: null };
+  else if (path.endsWith('/pago')) {
+    const amounts = { tarifa_base: 25000, comision: 3750, monto_total: 28750, moneda: 'CLP', simulado: true };
+    result = { ...amounts, pago: ['PAGADA','EN_CAMINO','EN_CURSO','LISTO','COMPLETADA'].includes(booking.estado) ? {
+      ...amounts, id: '99999999-9999-4999-8999-999999999999', solicitud_id: booking.id, cliente_id: client,
+      trabajador_id: worker, estado: 'APROBADO', creado_en: new Date().toISOString(),
+      proveedor: mpPreview ? 'MERCADO_PAGO_TEST' : 'SIMULADO', proveedor_pago_id: mpPreview ? '123456' : null,
+    } : null };
+  }
+  else if (path === '/qa/payment') {
+    checkout = { id: '88888888-8888-4888-8888-888888888888', solicitud_id: booking.id, estado: body.estado,
+      checkout_url: 'https://www.mercadopago.cl/checkout/v1/redirect?pref_id=fake-preview-only', expira_en: tomorrow.toISOString() };
+    if (body.estado === 'APROBADO') booking.estado = 'PAGADA';
+    result = checkout;
+  }
   else if (path === '/qa/state') { booking.estado = body.estado; if (['COMPLETADA','CANCELADA','RECHAZADA'].includes(body.estado)) { conversation = null; messages = []; } result = booking; }
   else { status = 404; result = { detail: 'Not part of isolated preview' }; }
   res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(result));

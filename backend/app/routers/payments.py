@@ -6,6 +6,7 @@ from app.core.security import AuthGateway, BearerToken
 from app.routers.bookings import CurrentUser, _parse, _role, _token
 from app.schemas.payment import PaymentResult, PaymentSummary, SimulatedPaymentRequest
 from app.schemas.user import UserRole
+from app.services.mercadopago import enabled
 
 router = APIRouter(prefix="/api/v1/solicitudes", tags=["Pagos simulados"])
 
@@ -56,6 +57,8 @@ async def simulate_payment(
     user: CurrentUser, credentials: BearerToken, gateway: AuthGateway,
 ) -> PaymentResult:
     _role(user, UserRole.CLIENTE)
+    if enabled():
+        raise HTTPException(409, "Completa el pago de prueba mediante Mercado Pago")
     result = _parse(PaymentResult, await _payment_rpc(
         gateway, _token(credentials), "simular_pago_solicitud", booking_id,
     ))

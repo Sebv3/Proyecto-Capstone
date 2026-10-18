@@ -3,6 +3,7 @@ import type { Booking } from './bookings';
 
 type PaymentAmounts = { tarifa_base: number; comision: number; monto_total: number; moneda: 'CLP'; simulado: true };
 export type Payment = PaymentAmounts & {
+  proveedor?: 'SIMULADO' | 'MERCADO_PAGO_TEST'; proveedor_pago_id?: string | null;
   id: string; solicitud_id: string; cliente_id: string; trabajador_id: string;
   estado: 'APROBADO'; creado_en: string;
 };

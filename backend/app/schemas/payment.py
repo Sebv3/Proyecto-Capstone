@@ -24,6 +24,8 @@ class PaymentAmounts(BaseModel):
 
 
 class PaymentResponse(PaymentAmounts):
+    proveedor: Literal["SIMULADO", "MERCADO_PAGO_TEST"] = "SIMULADO"
+    proveedor_pago_id: str | None = None
     id: UUID
     solicitud_id: UUID
     cliente_id: UUID

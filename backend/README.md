@@ -316,3 +316,71 @@ tarifa base del comprobante, sin restar el 15 % adicional pagado por el cliente.
 Los servicios PAGADA/EN_CAMINO/EN_CURSO/LISTO se presentan aparte según el mes de
 `inicio_en`. Canceladas, rechazadas y solicitudes sin pago quedan excluidas.
 La paginación del detalle no modifica los totales ni los días del gráfico.
+## Mercado Pago de prueba (SCRUM-74)
+
+La vigencia comienza cinco minutos antes de `checkout.creado_en`, usando la fecha
+de la base de datos. No se usa el reloj del host para el inicio: un desfase del PC
+puede producir el aviso «La compra estará disponible desde…». Al reabrir un checkout
+se corrigen ventanas anteriores conservando preferencia, importe y vencimiento.
+
+Checkout Pro usa Preferences API: una preferencia por solicitud, monto calculado en
+el servidor y referencia UUID del checkout. El token debe pertenecer a un vendedor
+de prueba chileno (`test_user`, `MLC`); el prefijo del token no determina el entorno.
+No se envía la identidad del cliente de ServiMatch al proveedor ni se integra Split.
+
+Configuración privada del `.env` raíz (Docker Compose):
+
+```dotenv
+MERCADO_PAGO_ACCESS_TOKEN=token_del_vendedor_de_prueba
+MERCADO_PAGO_WEBHOOK_SECRET=secreto_del_panel_webhooks
+MERCADO_PAGO_PUBLIC_URL=https://backend-publico.example.com
+MERCADO_PAGO_ENABLED=false
+```
+
+El modo permanece desactivado hasta revisar y aprobar la migración
+`20261017220000_mercadopago_test_checkout.sql` en Supabase. Después de aplicarla,
+cambiar `MERCADO_PAGO_ENABLED=true` y ejecutar `docker compose up -d --no-deps api`.
+El backend necesita `SUPABASE_SECRET_KEY` para los RPC exclusivos de servidor;
+la sesión del cliente nunca recibe esa clave ni puede aprobar pagos.
+
+Endpoints:
+
+- `GET /api/v1/pagos/configuracion`: modo público sin credenciales.
+- `POST /api/v1/solicitudes/{id}/pago/mercadopago`: cliente propietario, cuerpo `{}`.
+- `GET /api/v1/solicitudes/{id}/pago/mercadopago`: participantes consultan el checkout.
+- `POST /api/v1/solicitudes/{id}/pago/mercadopago/sincronizar`: participantes recuperan
+  el resultado consultando la API oficial (cuerpo `{}`).
+- `POST /api/v1/pagos/mercadopago/webhook`: `payment`, firma HMAC SHA256 validada
+  con `data.id`, `x-request-id` y `x-signature`; lectura autoritativa del pago antes
+  de persistir. Un ID ficticio del simulador que devuelve 404 se ignora sin inventar pagos.
+- `GET /api/v1/pagos/mercadopago/retorno`: página estática para regresar manualmente
+  a Expo Go. Los parámetros del redirect nunca confirman pagos.
+
+En el panel de Mercado Pago, URL de prueba: `MERCADO_PAGO_PUBLIC_URL` +
+`/api/v1/pagos/mercadopago/webhook`, evento **Pagos (legacy)** (`payment`).
+El servidor incluye `source_news=webhooks` al crear la preferencia.
+
+Solo pagos de prueba, CLP, vendedor y monto exactos pueden registrarse. El vendedor
+siempre se verifica como `test_user` chileno. Checkout Pro con usuarios ficticios
+puede devolver `live_mode=true`: en ese caso se verifica además el ID del comprador
+en la API de Mercado Pago, su país MLC, el usuario reservado TESTUSER numérico y el
+correo `test_user_<número>@testuser.com` devuelto por el proveedor. No se confía en
+el indicador del webhook ni en datos de comprador enviados por el frontend.
+Solo después de esa verificación se normaliza el entorno a simulado para el RPC
+existente; no se habilitan cobros de cuentas reales ni se modifica su contrato SQL.
+La aprobación crea un comprobante en `pagos` con `proveedor=MERCADO_PAGO_TEST`,
+`simulado=true` y cambia ACEPTADA a PAGADA en una transacción. La tarifa base sigue
+siendo la ganancia del trabajador; el 15 % adicional no se reparte entre cuentas.
+Cancelación, aprobación fuera del horario permitido, reembolso/contracargo o un
+segundo pago aprobado quedan en REVISION sin reactivar solicitudes ni transferir dinero.
+Los eventos duplicados o antiguos no duplican comprobantes ni revierten una aprobación.
+
+Si se pierde la respuesta de creación, se busca la preferencia por referencia al
+reintentar (espera mínima 30 s). Nunca se crea otra automáticamente si el resultado
+es incierto: requiere revisión si no se puede recuperar una preferencia única.
+Mantener el túnel activo durante las pruebas; las preferencias ya creadas conservan
+su URL de notificación y retorno anterior. La sincronización manual recupera avisos perdidos.
+
+Validación: `pytest tests/test_mercadopago.py`, `test_sprint4_integration.ps1`
+(PostgreSQL/PostgREST desechables + proveedor ficticio). El pago completo con tarjeta
+de prueba debe probarse desde el teléfono después de aplicar la migración y activar el modo.

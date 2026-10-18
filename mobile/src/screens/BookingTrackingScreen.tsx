@@ -13,6 +13,8 @@ import { paymentUnavailableReason } from '../services/paymentAvailability';
 import { bookingStatusLabels, canCancelBooking, canConfirmBooking, isTerminalBooking, workerActions, type BookingRole } from '../services/bookingTracking';
 import { BookingProgressCard, trackingBadges } from '../components/BookingProgressCard';
 import { BookingReviewCard } from '../components/BookingReviewCard';
+import { MercadoPagoCard } from '../components/MercadoPagoCard';
+import { getPaymentMode, type PaymentMode } from '../api/mercadopago';
 import { getServiceDetail } from '../api/catalog';
 import { formatBookingDate } from '../services/bookingForm';
 import { formatCatalogPrice } from '../services/catalogFilters';
@@ -37,6 +39,7 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
   const [confirmation, setConfirmation] = useState<ConfirmationCode | null>(null);
   const [payment, setPayment] = useState<PaymentSummary | null>(null);
   const [paymentError, setPaymentError] = useState('');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null);
   const [now, setNow] = useState(Date.now());
   const [counterpart, setCounterpart] = useState('');
   const [nameError, setNameError] = useState('');
@@ -48,6 +51,9 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
     const clock = setInterval(() => setNow(Date.now()), 30_000);
     setLoading(true); setLoadError(''); setError(''); setSuccess(''); setReason(''); setPending(null); setConfirmation(null); setCode('');
     setPayment(null); setPaymentError('');
+    setPaymentMode(null);
+    void getPaymentMode(controller.signal).then((mode) => { if (!controller.signal.aborted) setPaymentMode(mode); })
+      .catch(() => { if (!controller.signal.aborted) setPaymentError('No pudimos consultar los medios de pago. Actualiza el estado.'); });
     setCounterpart('');
     setNameError('');
     void request.current((token) => getBooking(token, bookingId, controller.signal))
@@ -156,19 +162,22 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
           </View>}
           {!!paymentError && <Text accessibilityRole="alert" style={styles.error}>{paymentError}</Text>}
           {payment && <View style={styles.card}>
-            <Text style={styles.section}>{payment.pago ? 'Pago simulado aprobado' : 'Pago del servicio'}</Text>
+            <Text style={styles.section}>{payment.pago ? payment.pago.proveedor === 'MERCADO_PAGO_TEST' ? 'Mercado Pago de prueba aprobado' : 'Pago simulado aprobado' : 'Pago del servicio'}</Text>
             <Text style={styles.hint}>Simulación académica: no se cobra ni se transfiere dinero real.</Text>
             <View style={styles.between}><Text style={[styles.label, styles.flex]}>Tarifa del servicio</Text><Text style={styles.value}>{formatCatalogPrice(payment.tarifa_base)}</Text></View>
             <View style={styles.between}><Text style={[styles.label, styles.flex]}>Comisión de plataforma (15 %)</Text><Text style={styles.value}>{formatCatalogPrice(payment.comision)}</Text></View>
             <View style={styles.between}><Text style={[styles.label, styles.flex]}>Total</Text><Text style={styles.value}>{formatCatalogPrice(payment.monto_total)}</Text></View>
-            {payment.pago && <Text selectable style={styles.hint}>Comprobante simulado: {payment.pago.id}</Text>}
+            {payment.pago && <Text selectable style={styles.hint}>Comprobante de prueba: {payment.pago.id}{payment.pago.proveedor_pago_id ? ` · Mercado Pago: ${payment.pago.proveedor_pago_id}` : ''}</Text>}
             {booking.estado === 'ACEPTADA' && paymentBlocked && <Text accessibilityRole="alert" style={styles.error}>{paymentBlocked}</Text>}
-            {booking.estado === 'ACEPTADA' && !paymentBlocked && role === 'TRABAJADOR' && <Text style={styles.text}>El cliente debe confirmar el pago simulado para continuar.</Text>}
+            {booking.estado === 'ACEPTADA' && !paymentBlocked && role === 'TRABAJADOR' && <Text style={styles.text}>El cliente debe completar el pago de prueba para continuar.</Text>}
           </View>}
+          {paymentMode === 'MERCADO_PAGO_TEST' && !['PENDIENTE', 'RECHAZADA'].includes(booking.estado) && <MercadoPagoCard bookingId={bookingId}
+            canPay={role === 'CLIENTE' && booking.estado === 'ACEPTADA' && !paymentBlocked && !!payment && !payment.pago}
+            approved={!!payment?.pago} onConfirmed={() => setRetry((value) => value + 1)} />}
           {!!success && <Text accessibilityLiveRegion="polite" style={[styles.text, styles.green]}>{success}</Text>}
           {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
           {!pending && <>
-            {role === 'CLIENTE' && booking.estado === 'ACEPTADA' && !paymentBlocked && payment && !payment.pago && <Pressable accessibilityRole="button" disabled={busy} onPress={() => select('simular-pago')} style={styles.button}><Text style={styles.buttonText}>Simular pago</Text></Pressable>}
+            {paymentMode === 'SIMULADO' && role === 'CLIENTE' && booking.estado === 'ACEPTADA' && !paymentBlocked && payment && !payment.pago && <Pressable accessibilityRole="button" disabled={busy} onPress={() => select('simular-pago')} style={styles.button}><Text style={styles.buttonText}>Simular pago</Text></Pressable>}
             {workerActions(booking, role).map(({ action, label }) => <Pressable key={action} accessibilityRole="button" disabled={busy} onPress={() => select(action)}
               style={[styles.button, action === 'rechazar' && tracking.danger]}><Text style={styles.buttonText}>{label}</Text></Pressable>)}
             {canConfirmBooking(booking) && (role === 'CLIENTE' ? <View style={styles.card}><Text style={styles.section}>Autorizar finalización</Text><Text style={styles.text}>Genera el código y entrégalo al trabajador solo cuando el servicio esté terminado y estés conforme.</Text><Pressable accessibilityRole="button" disabled={busy} onPress={() => select('codigo-confirmacion')} style={styles.button}><Text style={styles.buttonText}>Generar código de finalización</Text></Pressable></View>

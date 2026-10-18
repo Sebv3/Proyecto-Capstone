@@ -15,6 +15,7 @@ from app.routers.client_profiles import router as client_profiles_router
 from app.routers.earnings import router as earnings_router
 from app.routers.locations import router as locations_router
 from app.routers.locations import service_map_router
+from app.routers.mercadopago import router as mercadopago_router
 from app.routers.notifications import router as notifications_router
 from app.routers.payments import router as payments_router
 from app.routers.reviews import router as reviews_router
@@ -59,6 +60,7 @@ app.include_router(worker_certifications_router)
 app.include_router(bookings_router)
 app.include_router(chat_router)
 app.include_router(payments_router)
+app.include_router(mercadopago_router)
 app.include_router(reviews_router)
 app.include_router(earnings_router)
 

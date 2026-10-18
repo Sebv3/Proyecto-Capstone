@@ -432,3 +432,20 @@ Al trabajar en este proyecto, ten en cuenta:
 9. **Alcance del MVP:** Consultar `MVP.md` antes de implementar una funcionalidad. Lo que figure fuera de alcance se posterga salvo decisión explícita del equipo.
 10. **Base móvil:** El MVP utilizará Expo con React Native y TypeScript, manteniendo React Navigation.
 
+## SCRUM-74: Checkout Pro de prueba (17-10-2026)
+
+Implementación por Preferences API con vendedor test_user de Chile y comprador de
+prueba. Total tarifa base + 15 % CLP calculado en backend. Access Token, secreto de
+webhook y clave de persistencia solo en backend. Public Key no es necesaria en móvil.
+Checkout abre navegador; regreso manual a Expo Go + conciliación al primer plano.
+El webhook verifica firma y consulta el pago; redirect del navegador no confirma nada.
+Únicamente pagos de prueba verificados pueden producir PAGADA. Checkout Pro puede
+reportar live_mode=true entre cuentas ficticias; se verifica vendedor test_user e
+identidad técnica del comprador (ID, MLC, correo testuser.com de la API y perfil
+TESTUSER o perfil invitado `guest` con nickname `@<dígitos>` verificado por MP)
+antes de normalizar a simulado en el RPC. El flag del webhook no autoriza pagos.
+Duplicados no crean otro
+comprobante. Canceladas y pagos que requieren intervención quedan en REVISION.
+Ganancias conserva tarifa base y no hay Split, retenciones ni transferencias reales.
+Nueva migración `20261017220000_mercadopago_test_checkout.sql`, pendiente de aprobación
+y despliegue remoto. MERCADO_PAGO_ENABLED=false hasta su activación posterior.

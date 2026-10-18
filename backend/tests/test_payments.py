@@ -10,7 +10,8 @@ from tests.test_bookings import BOOKING, CLIENT, HEADERS, WORKER
 
 
 @pytest.fixture
-def make_client():
+def make_client(monkeypatch):
+    monkeypatch.setenv("MERCADO_PAGO_ENABLED", "false")
     yield from booking_tests.make_client.__wrapped__()
 
 PAYMENT = {

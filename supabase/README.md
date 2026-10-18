@@ -271,3 +271,26 @@ de pagos simulados aprobados con solicitud COMPLETADA, por fecha de finalizació
 y se mantienen aparte. `tests/earnings_rules.sql` verifica aislamiento, roles,
 cancelaciones, impagos, límites de mes, año bisiesto y paginación en base desechable.
 
+## Persistencia Mercado Pago de prueba (SCRUM-74)
+
+`20261017220000_mercadopago_test_checkout.sql` agrega:
+
+- `checkout_mercadopago`: una fila por solicitud con snapshot de montos, preferencia,
+  vendedor y estado. RLS permite lectura solo a participantes activos.
+- `eventos_pago_mercadopago`: auditoría privada por ID de pago; no guarda tarjetas,
+  correos ni payloads del proveedor.
+- En `pagos`, `proveedor` y `proveedor_pago_id` único. Los registros anteriores
+  siguen siendo SIMULADO; los nuevos de sandbox usan MERCADO_PAGO_TEST y simulado=true.
+
+El cliente autenticado solo puede iniciar un checkout para su propia solicitud
+ACEPTADA, futura y sin pago. `guardar_preferencia_mercadopago` y
+`procesar_pago_mercadopago` son exclusivos de `service_role`. El segundo verifica
+monto, moneda, vendedor y entorno, y guarda comprobante + PAGADA de forma atómica.
+Comparte orden de bloqueos con las operaciones de agenda y cancelación.
+Se bloquea el antiguo RPC de simulación si ya existe un checkout y se revoca
+el acceso al helper interno renombrado.
+
+La migración no activa el modo del backend por sí sola. Revisar y aprobar antes
+de aplicar al proyecto compartido. Después, activar MERCADO_PAGO_ENABLED y recrear API.
+`mercadopago_rules.sql` y los fixtures de rol usados por el runner son exclusivamente
+para la base desechable; nunca desplegar los fixtures ni helpers de test al remoto.
