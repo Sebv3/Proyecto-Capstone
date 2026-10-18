@@ -431,7 +431,3 @@ Al trabajar en este proyecto, ten en cuenta:
 8. **Admin manual:** Verificaciones, certificaciones, disputas y soporte son gestionados manualmente por el administrador.
 9. **Alcance del MVP:** Consultar `MVP.md` antes de implementar una funcionalidad. Lo que figure fuera de alcance se posterga salvo decisión explícita del equipo.
 10. **Base móvil:** El MVP utilizará Expo con React Native y TypeScript, manteniendo React Navigation.
-comprobante. Canceladas y pagos que requieren intervención quedan en REVISION.
-Ganancias conserva tarifa base y no hay Split, retenciones ni transferencias reales.
-Nueva migración `20261017220000_mercadopago_test_checkout.sql`, pendiente de aprobación
-y despliegue remoto. MERCADO_PAGO_ENABLED=false hasta su activación posterior.
