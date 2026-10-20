@@ -22,10 +22,11 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
   const offset = useRef(0);
   const previousQuery = useRef('');
   const isClient = role === 'CLIENTE';
+  const organized = !agenda;
   const [view, setView] = useState<BookingView>('activas');
   const [filterOpen, setFilterOpen] = useState(false);
   const [items, setItems] = useState<Booking[]>([]);
-  const [filter, setFilter] = useState<BookingStatus | ''>(role === 'TRABAJADOR' && !agenda ? 'PENDIENTE' : '');
+  const [filter, setFilter] = useState<BookingStatus | ''>('');
   const [date, setDate] = useState(localBookingFields(new Date()).date);
   const [loading, setLoading] = useState(true);
   const [moreLoading, setMoreLoading] = useState(false);
@@ -33,7 +34,7 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const filters: BookingFilters = { estado: filter || undefined, agenda: agenda || undefined,
-    vista: isClient ? view : undefined,
+    vista: organized ? view : undefined,
     ...(agenda ? bookingDayRange(date) ?? {} : {}) };
   useFocusEffect(useCallback(() => {
     const pending = new AbortController(); controller.current = pending;
@@ -44,12 +45,12 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
     moreRef.current = false; setMoreLoading(false); setLoading(true); setError(''); setHasMore(false);
     const range = agenda ? bookingDayRange(date) : null;
     if (agenda && !range) { setError('Indica una fecha válida en formato DD-MM-AAAA.'); setLoading(false); return () => pending.abort(); }
-    void request.current((token) => getBookings(token, { estado: filter || undefined, agenda: agenda || undefined, vista: isClient ? view : undefined, ...range }, pending.signal))
+    void request.current((token) => getBookings(token, { estado: filter || undefined, agenda: agenda || undefined, vista: organized ? view : undefined, ...range }, pending.signal))
       .then((rows) => { if (!pending.signal.aborted) { offset.current = rows.length; setItems(rows); setHasMore(rows.length === BOOKING_PAGE_SIZE); } })
       .catch((reason) => { if (!pending.signal.aborted) setError(bookingOperationError(reason)); })
       .finally(() => { if (!pending.signal.aborted) setLoading(false); });
     return () => pending.abort();
-  }, [filter, date, retry, agenda, role, isClient, view]));
+  }, [filter, date, retry, agenda, role, organized, view]));
   async function more() {
     const pending = controller.current;
     if (!pending || pending.signal.aborted || loading || moreRef.current || !hasMore) return;
@@ -61,21 +62,21 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
     finally { if (!pending.signal.aborted) { moreRef.current = false; setMoreLoading(false); } }
   }
   const states = Object.keys(bookingStatusLabels) as BookingStatus[];
-  const options = isClient ? bookingViewStates[view] : agenda ? states.filter((state) => !['PENDIENTE', 'CANCELADA', 'RECHAZADA'].includes(state)) : states;
+  const options = organized ? bookingViewStates[view] : states.filter((state) => !['PENDIENTE', 'CANCELADA', 'RECHAZADA'].includes(state));
   function refresh() { if (!loading && !moreLoading) setRetry((n) => n + 1); }
   return <SafeAreaView style={styles.page}>
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading && items.length > 0} onRefresh={refresh} tintColor="#087D56" />}>
       <Text style={styles.eyebrow}>{role === 'TRABAJADOR' ? 'PANEL DEL TRABAJADOR' : 'MIS SERVICIOS'}</Text>
       <Text accessibilityRole="header" style={[styles.headerTitle, { fontSize: 27, flex: 0 }]}>{agenda ? 'Reservas de mi agenda' : role === 'TRABAJADOR' ? 'Solicitudes recibidas' : 'Mis solicitudes'}</Text>
       <Text style={styles.text}>{agenda ? 'Reservas aceptadas y su avance, ordenadas por la hora de inicio del día elegido.'
-        : role === 'TRABAJADOR' ? 'Abre una solicitud para revisar sus datos y responder al cliente.' : 'Las solicitudes recién creadas aparecen primero. La fecha de la cita se muestra en cada tarjeta.'}</Text>
+        : 'Las solicitudes recién creadas aparecen primero. La fecha de la cita se muestra en cada tarjeta.'}</Text>
       {onAvailability && <Pressable accessibilityRole="button" style={styles.action} onPress={onAvailability}><Text style={styles.link}>Gestionar disponibilidad</Text></Pressable>}
       {agenda && <>
         <BookingCalendar value={date} onChange={setDate} isDayEnabled={() => true} />
         <TextInput accessibilityLabel="Fecha de la agenda" value={date} onChangeText={setDate} maxLength={10} placeholder="09-10-2026" style={styles.input} />
         <Text style={styles.hint}>DD-MM-AAAA · Hora local: {Intl.DateTimeFormat().resolvedOptions().timeZone}</Text>
       </>}
-      {isClient && <>
+      {organized && <>
         <View accessibilityRole="tablist" style={styles.row}>
           {(['activas', 'historial'] as BookingView[]).map((tab) => <Pressable key={tab} accessibilityRole="tab"
             accessibilityState={{ selected: view === tab }} onPress={() => { setView(tab); setFilter(''); setFilterOpen(false); }}
@@ -89,7 +90,7 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
           <Ionicons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#52695C" />
         </Pressable>
       </>}
-      {(!isClient || filterOpen) && <ScrollView horizontal={!isClient} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+      {(!organized || filterOpen) && <ScrollView horizontal={!organized} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
         {(['', ...options] as (BookingStatus | '')[]).map((state) => <Pressable key={state || 'ALL'} accessibilityRole="button"
           accessibilityState={{ selected: filter === state }} onPress={() => { setFilter(state); setFilterOpen(false); }} style={[styles.chip, filter === state && styles.active]}>
           <Text style={[styles.label, filter === state && styles.green]}>{state ? bookingStatusLabels[state] : 'Todas'}</Text>
@@ -103,11 +104,12 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
         <Text style={styles.section}>{agenda ? 'No tienes reservas para esta fecha' : 'No hay solicitudes en este filtro'}</Text>
         <Text style={styles.hint}>{agenda ? 'Las solicitudes aparecen aquí una vez aceptadas.' : 'Puedes cambiar el filtro o actualizar la lista.'}</Text></View>}
       {items.map((booking) => <Pressable key={booking.id} accessibilityRole="button" accessibilityLabel={'Ver solicitud de ' + booking.servicio_nombre}
-        onPress={() => onBooking(booking.id)} style={[styles.card, isClient && { padding: 16, gap: 6 }]}>
+        onPress={() => onBooking(booking.id)} style={[styles.card, organized && { padding: 16, gap: 6 }]}>
         <View style={styles.between}><Text style={[styles.section, styles.flex]}>{booking.servicio_nombre}</Text><Ionicons name="chevron-forward" size={20} color="#087D56" /></View>
-        <Text style={[styles.value, { color: isClient ? bookingStatusColor(booking.estado) : '#087D56' }]}>{bookingStatusLabels[booking.estado]}</Text>
-        <Text style={styles.text}>{isClient ? 'Cita: ' : ''}{formatBookingDate(booking.inicio_en)}</Text>
-        <Text style={styles.hint}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'} · {isClient ? 'Precio base: ' : `${booking.duracion_estimada_minutos} min · `}{formatCatalogPrice(booking.precio_base)}</Text>
+        <Text style={[styles.value, { color: organized ? bookingStatusColor(booking.estado) : '#087D56' }]}>{bookingStatusLabels[booking.estado]}</Text>
+        <Text style={styles.text}>{organized ? 'Cita: ' : ''}{formatBookingDate(booking.inicio_en)}</Text>
+        <Text style={styles.hint}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'} · {organized ? 'Precio base: ' : `${booking.duracion_estimada_minutos} min · `}{formatCatalogPrice(booking.precio_base)}</Text>
+        {!isClient && organized && <Text style={styles.hint}>Duración: {booking.duracion_estimada_minutos} min</Text>}
         {isClient && bookingAttention(booking) && <Text style={[styles.hint, { color: '#895A08', fontWeight: '700' }]}>{bookingAttention(booking)}</Text>}
         {!isClient && <Text style={styles.text}>{booking.ubicacion_servicio}</Text>}
       </Pressable>)}

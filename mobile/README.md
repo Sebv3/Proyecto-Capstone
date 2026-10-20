@@ -391,6 +391,14 @@ No representa saldo disponible ni ejecuta transferencias.
 Comprobar mes vacío, cambio de año, volver a la pantalla tras completar un servicio,
 actualización manual y error/reintento. `npm run test:earnings` verifica fechas,
 formato CLP, sesión, paginación y errores; `npm run test:reviews` cubre la API de reseñas.
+## Organización de solicitudes
+
+Solicitudes del trabajador utiliza las mismas pestañas Activas / Historial y filtro
+de estado desplegable que el cliente. Ambas listas muestran las solicitudes más
+recientes primero, con colores de estado, cita y precio base. El trabajador mantiene
+dirección y duración; la agenda sigue ordenada por hora de atención. Requiere la API
+actualizada que permite `vista=activas|historial` para ambos participantes.
+
 ## Checkout Pro en Expo Go (SCRUM-74)
 
 El seguimiento consulta el modo de pago al backend. Con Mercado Pago activo, el

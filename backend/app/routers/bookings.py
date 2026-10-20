@@ -138,13 +138,13 @@ async def list_bookings(
         raise HTTPException(422, "El término del rango debe ser posterior al inicio")
     if agenda or proximas:
         _role(user, UserRole.TRABAJADOR)
-    if vista is not None:
-        _role(user, UserRole.CLIENTE)
     field = "cliente_id" if user.rol == UserRole.CLIENTE else "trabajador_id"
     params = {
         field: f"eq.{user.id}", "select": BOOKING_FIELDS,
         "order": (
-            "creado_en.desc,id.desc" if user.rol == UserRole.CLIENTE else "inicio_en.asc,id.asc"
+            "creado_en.desc,id.desc"
+            if user.rol == UserRole.CLIENTE or (vista is not None and not agenda and not proximas)
+            else "inicio_en.asc,id.asc"
         ),
         "limit": str(limit), "offset": str(offset),
     }

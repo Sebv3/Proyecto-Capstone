@@ -40,7 +40,12 @@ http.createServer(async (req, res) => {
     result = { mes: month, moneda: 'CLP', simulado: true, total_completado: populated ? 113000 : 0, cantidad_completada: populated ? 4 : 0, total_en_curso: populated ? 25000 : 0, cantidad_en_curso: populated ? 1 : 0,
       dias: Array.from({ length: days }, (_, i) => ({ fecha: `${month}-${String(i+1).padStart(2,'0')}`, monto: populated ? amounts[i+1] || 0 : 0 })), items: items.reverse().slice(offset, offset+20), limit: 20, offset, has_more: false };
   }
-  else if (path === '/solicitudes') result = [booking];
+  else if (path === '/solicitudes') {
+    const view = url.searchParams.get('vista'), state = url.searchParams.get('estado');
+    const terminal = ['COMPLETADA', 'CANCELADA', 'RECHAZADA'].includes(booking.estado);
+    result = (state && state !== booking.estado) || (view === 'activas' && terminal)
+      || (view === 'historial' && !terminal) || Number(url.searchParams.get('offset') || 0) > 0 ? [] : [booking];
+  }
   else if (path === '/pagos/configuracion') result = { modo: mpPreview ? 'MERCADO_PAGO_TEST' : 'SIMULADO' };
   else if (path.includes('/pago/mercadopago')) {
     if (req.method === 'POST' && !path.endsWith('/sincronizar')) checkout = {

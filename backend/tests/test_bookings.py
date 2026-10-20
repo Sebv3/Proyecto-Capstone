@@ -99,12 +99,13 @@ def test_listing_is_scoped_and_paginated(make_client, user, field):
 ])
 @pytest.mark.parametrize("status", [None, "CANCELADA", "ACEPTADA"])
 @pytest.mark.parametrize("with_dates", [False, True])
-def test_client_views_intersect_filters_before_pagination(
-    make_client, view, states, status, with_dates,
+@pytest.mark.parametrize("user,field", [(CLIENT, "cliente_id"), (WORKER, "trabajador_id")])
+def test_participant_views_intersect_filters_before_pagination(
+    make_client, view, states, status, with_dates, user, field,
 ):
     def handler(request):
         params = request.url.params
-        assert params["cliente_id"] == f"eq.{CLIENT_ID}"
+        assert params[field] == f"eq.{user['id']}"
         assert params["order"] == "creado_en.desc,id.desc"
         assert params["limit"] == "10"
         assert params["offset"] == "20"
@@ -121,20 +122,9 @@ def test_client_views_intersect_filters_before_pagination(
         params["estado"] = status
     if with_dates:
         params.update(desde="2030-01-10T00:00:00Z", hasta="2030-01-11T00:00:00Z")
-    result = make_client(handler).get("/api/v1/solicitudes", headers=HEADERS, params=params)
+    result = make_client(handler, user).get("/api/v1/solicitudes", headers=HEADERS, params=params)
     assert result.status_code == 200
     assert result.json() == []
-
-
-@pytest.mark.parametrize("view", ["activas", "historial"])
-def test_worker_cannot_request_client_views(make_client, view):
-    def handler(request):
-        pytest.fail("Client views must be rejected before querying bookings")
-
-    response = make_client(handler, WORKER).get(
-        "/api/v1/solicitudes", headers=HEADERS, params={"vista": view},
-    )
-    assert response.status_code == 403
 
 
 def test_invalid_client_view_is_rejected(make_client):
