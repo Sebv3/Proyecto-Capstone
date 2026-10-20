@@ -19,6 +19,8 @@ import {
 } from '../api/workerRoleRequest';
 import { WorkerProfileSection } from './WorkerProfileSection';
 import { WorkerRoleDocumentsScreen } from './WorkerRoleDocumentsScreen';
+import { showWorkerRoleRequest } from '../services/workerRoleRequest';
+import { EditableProfilePhoto, ProfileAvatar } from '../components/ProfilePhoto';
 
 const profileSchema = z.object({
   nombre: z.string().trim().min(2, 'Ingresa al menos dos caracteres.').max(120),
@@ -127,6 +129,7 @@ export function ProfileScreen({
     if (user?.rol !== 'CLIENTE') return;
     let active = true;
     setRoleRequestLoading(true);
+    setRoleRequest(null);
     setRoleRequestError(null);
     void refreshUser()
       .then((currentUser) => currentUser.rol === 'CLIENTE'
@@ -198,7 +201,6 @@ export function ProfileScreen({
       }}
     />;
   }
-  const roles = { CLIENTE: 'Cliente', TRABAJADOR: 'Trabajador', ADMIN: 'Administrador' };
   const showForm = user.rol === 'CLIENTE' && (missing || editing);
   return <SafeAreaView style={styles.page}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -211,11 +213,11 @@ export function ProfileScreen({
         <Text style={styles.subtitle}>Tus datos personales y de contacto en un solo lugar.</Text>
 
         <View style={styles.hero}>
-          <View style={styles.avatar}><Text style={styles.avatarText}>{user.nombre.slice(0, 1).toUpperCase()}</Text></View>
+          <ProfileAvatar url={user.avatar_url} name={user.nombre} />
           <View style={styles.flex}>
             <Text style={styles.heroName}>{profile?.nombre ?? user.nombre}</Text>
             <Text style={styles.heroEmail}>{user.email}</Text>
-            <Text style={styles.role}>{roles[user.rol]}</Text>
+            <EditableProfilePhoto key={user.id} />
           </View>
         </View>
 
@@ -291,7 +293,7 @@ export function ProfileScreen({
 
         {user.rol === 'TRABAJADOR' && <WorkerProfileSection onProfileCreated={onWorkerProfileCreated} />}
 
-        {user.rol === 'CLIENTE' && <View style={styles.roleRequestCard}>
+        {showWorkerRoleRequest(user.rol, roleRequest) && <View style={styles.roleRequestCard}>
           <Text style={styles.sectionTitle}>¿Quieres ofrecer tus servicios?</Text>
           <Text style={styles.sectionHint}>
             Solicita convertir tu cuenta en un perfil de trabajador. Mantendrás tu acceso de cliente mientras revisamos la solicitud.

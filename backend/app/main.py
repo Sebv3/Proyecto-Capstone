@@ -18,6 +18,7 @@ from app.routers.locations import service_map_router
 from app.routers.mercadopago import router as mercadopago_router
 from app.routers.notifications import router as notifications_router
 from app.routers.payments import router as payments_router
+from app.routers.profile_avatar import router as profile_avatar_router
 from app.routers.reviews import router as reviews_router
 from app.routers.worker_certifications import router as worker_certifications_router
 from app.routers.worker_role_requests import router as worker_role_requests_router
@@ -53,6 +54,7 @@ app.include_router(service_map_router)
 app.include_router(admin_worker_role_requests_router)
 app.include_router(admin_verifications_router)
 app.include_router(client_profiles_router)
+app.include_router(profile_avatar_router)
 app.include_router(worker_verification_router)
 app.include_router(worker_role_requests_router)
 app.include_router(worker_services_router)

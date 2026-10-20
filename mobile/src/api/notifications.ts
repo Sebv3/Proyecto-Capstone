@@ -29,6 +29,14 @@ export async function readNotifications(token: string, id?: string): Promise<voi
   await api.post(id ? `/notificaciones/${encodeURIComponent(id)}/leer` : '/notificaciones/leer-todas', undefined,
     { headers: { Authorization: `Bearer ${token}` } });
 }
+export async function clearNotifications(token: string): Promise<number> {
+  connection();
+  const { data } = await api.delete<{ eliminadas: number }>('/notificaciones', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!Number.isInteger(data.eliminadas) || data.eliminadas < 0) throw new Error('Respuesta de notificaciones inválida.');
+  return data.eliminadas;
+}
 export function notificationError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) return 'No pudimos conectar. Revisa tu conexión y vuelve a intentar.';

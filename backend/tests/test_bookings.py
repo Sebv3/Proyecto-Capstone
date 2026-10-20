@@ -82,12 +82,66 @@ def test_listing_is_scoped_and_paginated(make_client, user, field):
         assert request.url.params["estado"] == "eq.PENDIENTE"
         assert request.url.params["limit"] == "10"
         assert request.url.params["offset"] == "20"
+        assert request.url.params["order"] == (
+            "creado_en.desc,id.desc" if user["rol"] == "CLIENTE" else "inicio_en.asc,id.asc"
+        )
         return httpx.Response(200, json=[BOOKING])
 
     response = make_client(handler, user).get(
         "/api/v1/solicitudes?estado=PENDIENTE&limit=10&offset=20", headers=HEADERS
     )
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize("view,states", [
+    ("activas", "PENDIENTE,ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO"),
+    ("historial", "COMPLETADA,CANCELADA,RECHAZADA"),
+])
+@pytest.mark.parametrize("status", [None, "CANCELADA", "ACEPTADA"])
+@pytest.mark.parametrize("with_dates", [False, True])
+def test_client_views_intersect_filters_before_pagination(
+    make_client, view, states, status, with_dates,
+):
+    def handler(request):
+        params = request.url.params
+        assert params["cliente_id"] == f"eq.{CLIENT_ID}"
+        assert params["order"] == "creado_en.desc,id.desc"
+        assert params["limit"] == "10"
+        assert params["offset"] == "20"
+        assert params.get("estado") == (f"eq.{status}" if status else None)
+        clauses = [f"estado.in.({states})"]
+        if with_dates:
+            clauses += ["inicio_en.gte.2030-01-10T00:00:00+00:00",
+                        "inicio_en.lt.2030-01-11T00:00:00+00:00"]
+        assert params["and"] == f"({','.join(clauses)})"
+        return httpx.Response(200, json=[])
+
+    params = {"vista": view, "limit": 10, "offset": 20}
+    if status:
+        params["estado"] = status
+    if with_dates:
+        params.update(desde="2030-01-10T00:00:00Z", hasta="2030-01-11T00:00:00Z")
+    result = make_client(handler).get("/api/v1/solicitudes", headers=HEADERS, params=params)
+    assert result.status_code == 200
+    assert result.json() == []
+
+
+@pytest.mark.parametrize("view", ["activas", "historial"])
+def test_worker_cannot_request_client_views(make_client, view):
+    def handler(request):
+        pytest.fail("Client views must be rejected before querying bookings")
+
+    response = make_client(handler, WORKER).get(
+        "/api/v1/solicitudes", headers=HEADERS, params={"vista": view},
+    )
+    assert response.status_code == 403
+
+
+def test_invalid_client_view_is_rejected(make_client):
+    response = make_client(lambda request: httpx.Response(200, json=[])).get(
+        "/api/v1/solicitudes?vista=invalid", headers=HEADERS,
+    )
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize("user,field", [(CLIENT, "cliente_id"), (WORKER, "trabajador_id")])

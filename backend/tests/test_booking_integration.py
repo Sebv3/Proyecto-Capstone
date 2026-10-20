@@ -185,6 +185,38 @@ def test_complete_lifecycle_uses_real_rpc_and_code(integration, service, steps):
                   {"codigo": code.json()["codigo"]}).status_code == 409
 
 
+def test_client_tabs_sort_by_creation_and_paginate_after_filtering(integration):
+    api = integration
+    start, _ = schedule(api)
+    first = create(api, start + timedelta(hours=3))
+    rejected = create(api, start)
+    assert action(api, rejected, "rechazar").status_code == 200
+    cancelled = create(api, start + timedelta(hours=1))
+    result = action(api, cancelled, "cancelar", CLIENT, {"motivo": "Cambio de planes"})
+    assert result.status_code == 200
+    newest = create(api, start + timedelta(hours=2))
+
+    for view, expected in [("activas", [newest, first]), ("historial", [cancelled, rejected])]:
+        for offset, booking in enumerate(expected):
+            response = api.get("/api/v1/solicitudes", headers=headers(CLIENT), params={
+                "vista": view, "limit": 1, "offset": offset,
+            })
+            assert response.status_code == 200, response.text
+            assert [row["id"] for row in response.json()] == [booking["id"]]
+        assert api.get("/api/v1/solicitudes", headers=headers(OTHER_CLIENT),
+                       params={"vista": view}).json() == []
+    assert api.get("/api/v1/solicitudes", headers=headers(CLIENT), params={
+        "vista": "activas", "estado": "CANCELADA",
+    }).json() == []
+    assert api.get("/api/v1/solicitudes", headers=headers(CLIENT), params={
+        "vista": "historial", "estado": "RECHAZADA",
+    }).json()[0]["id"] == rejected["id"]
+    worker_list = api.get("/api/v1/solicitudes", headers=headers(WORKER))
+    assert [row["id"] for row in worker_list.json()] == [
+        newest["id"], first["id"],
+    ]
+
+
 def test_database_rls_and_http_ownership_hide_private_address(integration):
     api = integration
     start, _ = schedule(api)

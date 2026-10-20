@@ -20,7 +20,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   withAccessToken: <T>(request: (token: string) => Promise<T>) => Promise<T>;
   refreshUser: () => Promise<User>;
-  updateUser: (changes: Pick<User, 'nombre'>) => void;
+  updateUser: (changes: Partial<Pick<User, 'nombre' | 'avatar_url'>>) => void;
 };
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
@@ -177,7 +177,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => { active = false; clearTimeout(timer); subscription.remove(); };
   }, [session]);
 
-  function updateUser(changes: Pick<User, 'nombre'>) {
+  function updateUser(changes: Partial<Pick<User, 'nombre' | 'avatar_url'>>) {
     setUser((current) => current ? { ...current, ...changes } : current);
   }
 

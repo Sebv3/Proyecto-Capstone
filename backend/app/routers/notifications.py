@@ -64,6 +64,24 @@ async def unread_count(user: CurrentUser, credentials: BearerToken, gateway: Aut
     return {"cantidad": count}
 
 
+@router.delete("")
+async def clear_notifications(
+    user: CurrentUser, credentials: BearerToken, gateway: AuthGateway,
+):
+    response = await gateway.request(
+        "POST", "/rest/v1/rpc/limpiar_notificaciones_finalizadas",
+        json={}, access_token=credentials.credentials,
+    )
+    _check(response)
+    try:
+        count = response.json()
+        if type(count) is not int or count < 0:
+            raise ValueError("Invalid deleted count")
+    except ValueError as exc:
+        raise HTTPException(502, "Respuesta de notificaciones inválida") from exc
+    return {"eliminadas": count}
+
+
 async def _read(gateway, token, notification_id=None):
     response = await gateway.request(
         "POST", "/rest/v1/rpc/leer_notificaciones",

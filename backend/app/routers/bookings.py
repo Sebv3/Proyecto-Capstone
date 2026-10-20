@@ -1,6 +1,6 @@
 import secrets
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -128,6 +128,7 @@ async def list_bookings(
     hasta: AwareDatetime | None = None,
     agenda: bool = False,
     proximas: bool = False,
+    vista: Literal["activas", "historial"] | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[BookingResponse]:
@@ -137,14 +138,19 @@ async def list_bookings(
         raise HTTPException(422, "El término del rango debe ser posterior al inicio")
     if agenda or proximas:
         _role(user, UserRole.TRABAJADOR)
+    if vista is not None:
+        _role(user, UserRole.CLIENTE)
     field = "cliente_id" if user.rol == UserRole.CLIENTE else "trabajador_id"
     params = {
-        field: f"eq.{user.id}", "select": BOOKING_FIELDS, "order": "inicio_en.asc,id.asc",
+        field: f"eq.{user.id}", "select": BOOKING_FIELDS,
+        "order": (
+            "creado_en.desc,id.desc" if user.rol == UserRole.CLIENTE else "inicio_en.asc,id.asc"
+        ),
         "limit": str(limit), "offset": str(offset),
     }
     if estado is not None:
         params["estado"] = f"eq.{estado.value}"
-    elif not agenda and not proximas:
+    elif not agenda and not proximas and vista is None:
         params["estado"] = "not.in.(CANCELADA,RECHAZADA)"
     if agenda or proximas:
         states = "ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO,COMPLETADA"
@@ -159,6 +165,12 @@ async def list_bookings(
         ranges.append(f"inicio_en.gte.{desde.astimezone(UTC).isoformat()}")
     if hasta is not None:
         ranges.append(f"inicio_en.lt.{hasta.astimezone(UTC).isoformat()}")
+    if vista is not None:
+        view_states = (
+            "PENDIENTE,ACEPTADA,PAGADA,EN_CAMINO,EN_CURSO,LISTO"
+            if vista == "activas" else "COMPLETADA,CANCELADA,RECHAZADA"
+        )
+        ranges.insert(0, f"estado.in.({view_states})")
     if ranges:
         if agenda or proximas:
             ranges.insert(0, f"estado.in.({states})")

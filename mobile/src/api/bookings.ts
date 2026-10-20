@@ -20,7 +20,8 @@ const api = axios.create({
 function requireConnection() {
   if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
 }
-export type BookingFilters = { estado?: BookingStatus; desde?: string; hasta?: string; agenda?: boolean; offset?: number };
+export type BookingView = 'activas' | 'historial';
+export type BookingFilters = { estado?: BookingStatus; vista?: BookingView; desde?: string; hasta?: string; agenda?: boolean; offset?: number };
 export const BOOKING_PAGE_SIZE = 20;
 export async function getUpcomingBookings(token: string, signal?: AbortSignal): Promise<Booking[]> {
   requireConnection();
@@ -35,6 +36,7 @@ export async function getBookings(token: string, filters: BookingFilters = {}, s
   const { data } = await api.get<Booking[]>('/solicitudes', {
     headers: { Authorization: `Bearer ${token}` }, signal,
     params: { estado: filters.estado, desde: filters.desde, hasta: filters.hasta, agenda: filters.agenda,
+      ...(filters.vista ? { vista: filters.vista } : {}),
       limit: BOOKING_PAGE_SIZE, offset: filters.offset ?? 0 },
   });
   return data;

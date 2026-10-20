@@ -82,3 +82,44 @@ def test_invalid_count_does_not_show_a_false_badge(make_client):
         "/api/v1/notificaciones/sin-leer", headers=HEADERS,
     )
     assert result.status_code == 502
+
+
+@pytest.mark.parametrize("user", [CLIENT, WORKER])
+@pytest.mark.parametrize("only_read", [None, True, False])
+def test_clear_uses_fixed_server_rule_even_for_old_clients(make_client, user, only_read):
+    def handler(request):
+        assert request.method == "POST"
+        assert request.url.path == "/rest/v1/rpc/limpiar_notificaciones_finalizadas"
+        assert request.headers["Authorization"] == HEADERS["Authorization"]
+        assert json.loads(request.content) == {}
+        return httpx.Response(200, json=42)
+
+    result = make_client(handler, user).delete(
+        "/api/v1/notificaciones", headers=HEADERS,
+        params={} if only_read is None else {"solo_leidas": str(only_read).lower()},
+    )
+    assert result.status_code == 200
+    assert result.json() == {"eliminadas": 42}
+
+
+@pytest.mark.parametrize("headers", [{}, HEADERS])
+def test_clear_rejects_anonymous_or_inactive_users(make_client, headers):
+    result = make_client(lambda request: pytest.fail("No deletion allowed"), {
+        **CLIENT, "activo": False,
+    }).delete("/api/v1/notificaciones", headers=headers)
+    assert result.status_code in (401, 403)
+
+
+@pytest.mark.parametrize("value", [-1, True, "5", None, {}])
+def test_clear_rejects_invalid_confirmation(make_client, value):
+    result = make_client(lambda request: httpx.Response(200, json=value)).delete(
+        "/api/v1/notificaciones", headers=HEADERS,
+    )
+    assert result.status_code == 502
+
+
+def test_clear_missing_migration_is_explained(make_client):
+    result = make_client(lambda request: httpx.Response(404)).delete(
+        "/api/v1/notificaciones", headers=HEADERS,
+    )
+    assert result.status_code == 503

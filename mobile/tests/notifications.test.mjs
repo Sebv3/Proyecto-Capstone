@@ -4,7 +4,7 @@ import axios from 'axios';
 process.env.EXPO_PUBLIC_API_URL = 'http://localhost:8000/api/v1';
 let handler;
 axios.defaults.adapter = (config) => handler(config);
-const { getNotifications, unreadNotificationCount, readNotifications, notificationError } = await import('../src/api/notifications.ts');
+const { getNotifications, unreadNotificationCount, readNotifications, clearNotifications, notificationError } = await import('../src/api/notifications.ts');
 const response = (config, data) => ({ config, data, status: 200, statusText: 'OK', headers: {} });
 
 test('notification queries authenticate, paginate and support abort', async () => {
@@ -47,4 +47,25 @@ test('read one or all without choosing a recipient or sending a timestamp', asyn
 test('missing migration is explained without exposing upstream details', () => {
   const error = new axios.AxiosError('private', undefined, undefined, undefined, { status: 503 });
   assert.match(notificationError(error), /todavía no están disponibles/);
+});
+
+test('clearing uses server lifecycle rules and never requests deleting all or only read notices', async () => {
+  const scopes = [];
+  handler = async (config) => {
+    assert.equal(config.method, 'delete');
+    assert.equal(config.url, '/notificaciones');
+    assert.equal(config.headers.Authorization, 'Bearer token');
+    assert.equal(config.data, undefined);
+    scopes.push(config.params);
+    return response(config, { eliminadas: 42 });
+  };
+  assert.equal(await clearNotifications('token'), 42);
+  assert.deepEqual(scopes, [undefined]);
+});
+
+test('invalid clearing confirmations are not treated as successful deletions', async () => {
+  for (const eliminadas of [-1, true, '5', null, undefined]) {
+    handler = async (config) => response(config, { eliminadas });
+    await assert.rejects(clearNotifications('token'), /inválida/);
+  }
 });

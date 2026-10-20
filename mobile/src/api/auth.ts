@@ -5,6 +5,7 @@ export type User = {
   nombre: string;
   email: string;
   telefono: string | null;
+  avatar_url?: string | null;
   rol: 'CLIENTE' | 'TRABAJADOR' | 'ADMIN';
   activo: boolean;
 };

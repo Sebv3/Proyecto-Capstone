@@ -79,9 +79,15 @@ try {
         'tests/earnings_rules.sql',
         'tests/mercadopago_role_fixture.sql',
         'migrations/20261017220000_mercadopago_test_checkout.sql',
-        'tests/mercadopago_rules.sql'
+        'tests/mercadopago_rules.sql',
+        'migrations/20261019120000_profile_avatars.sql',
+        'tests/profile_avatars_rules.sql'
     )) { $migrationArgs += @('-f',"/fixtures/$file") }
     Invoke-TestDocker -DockerArgs $migrationArgs | Out-Null
+    Invoke-TestDocker -DockerArgs @('exec',$reviewPg,'psql','-U','postgres','-v','ON_ERROR_STOP=1',
+                                  '-c','CREATE DATABASE notifications_review') | Out-Null
+    Invoke-TestDocker -DockerArgs @('exec',$reviewPg,'psql','-U','postgres','-d','notifications_review',
+                                  '-v','ON_ERROR_STOP=1','-f','/fixtures/tests/notifications_rules.sql') | Out-Null
     Invoke-TestDocker -DockerArgs @('network','connect',$reviewNetwork,$reviewApi)
     $connectedApi = $true
     Invoke-TestDocker -DockerArgs @(
