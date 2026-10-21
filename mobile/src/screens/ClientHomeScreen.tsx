@@ -18,7 +18,7 @@ export function ClientHomeScreen({ onSearch, onCategory, onService }: {
   return <SafeAreaView style={styles.page}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.greeting}>{greeting()}</Text>
           <Text accessibilityRole="header" style={styles.title}>{user?.nombre ?? 'Cliente'}</Text>
         </View>
@@ -33,7 +33,7 @@ export function ClientHomeScreen({ onSearch, onCategory, onService }: {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F5F7F6' },
   content: { padding: 16, paddingBottom: 42, width: '100%', maxWidth: 680, alignSelf: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  greeting: { color: '#66756F', fontSize: 13, fontWeight: '600' },
+  header: { flexDirection: 'row', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  greeting: { color: '#52695C', fontSize: 13, fontWeight: '600' },
   title: { color: '#14251F', fontSize: 22, fontWeight: '900', marginTop: 2 },
 });

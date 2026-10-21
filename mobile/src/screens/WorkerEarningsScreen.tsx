@@ -1,12 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { earningsError, getWorkerEarnings, type EarningsDay, type WorkerEarnings } from '../api/earnings';
 import { useAuth } from '../auth/AuthContext';
 import { bookingStyles as shared } from '../components/bookingStyles';
 import { currentEarningsMonth, earningsMoney, earningsMonthLabel, shiftEarningsMonth } from '../services/earnings';
+
+const movementDate = new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: 'short', year: 'numeric' });
+// A month has at most 31 bars. Keep this bounded chart simple and its selection
+// state local, so selecting a day does not render the summary or movement rows.
+const EarningsChart = memo(function EarningsChart({ days, empty }: { days: EarningsDay[]; empty: boolean }) {
+  const [selected, setSelected] = useState<EarningsDay | null>(null);
+  const max = useMemo(() => Math.max(1, ...days.map((day) => day.monto)), [days]);
+  return <View style={shared.card}>
+    <Text style={shared.section}>Ingresos diarios</Text>
+    <Text style={shared.hint}>Por fecha de finalización · Hora de Chile</Text>
+    {empty ? <Text style={shared.text}>Aún no tienes ingresos de servicios completados este mes.</Text> : <>
+      <Text style={shared.value}>{selected ? `Día ${Number(selected.fecha.slice(-2))}: ${earningsMoney(selected.monto)}` : 'Toca una barra para ver el importe'}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.chart}>
+        {days.map((day) => <Pressable key={day.fecha} accessibilityRole="button" accessibilityLabel={`Día ${Number(day.fecha.slice(-2))}: ${earningsMoney(day.monto)}`} accessibilityState={{ selected: selected?.fecha === day.fecha }} onPress={() => setSelected(day)} style={styles.column}>
+          <View style={styles.track}><View style={{ width: 14, height: day.monto ? Math.max(3, day.monto / max * 104) : 2, borderRadius: 5, backgroundColor: selected?.fecha === day.fecha ? '#D49C26' : day.monto ? '#087D56' : '#E0E8E3' }} /></View>
+          <Text style={shared.hint}>{Number(day.fecha.slice(-2))}</Text>
+        </Pressable>)}
+      </ScrollView>
+    </>}
+    <Text style={shared.hint}>Tu ganancia corresponde a la tarifa base. El 15 % de plataforma se suma al pago del cliente.</Text>
+  </View>;
+});
 
 export function WorkerEarningsScreen() {
   const { withAccessToken } = useAuth();
@@ -15,22 +37,20 @@ export function WorkerEarningsScreen() {
   const [offset, setOffset] = useState(0);
   const [retry, setRetry] = useState(0);
   const [data, setData] = useState<WorkerEarnings | null>(null);
-  const [selected, setSelected] = useState<EarningsDay | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   useFocusEffect(useCallback(() => {
     const controller = new AbortController();
     setLoading(true); setError(''); setData(null);
     void request.current((token) => getWorkerEarnings(token, month, offset, controller.signal))
-      .then((result) => { if (!controller.signal.aborted) { setData(result); setSelected(null); } })
+      .then((result) => { if (!controller.signal.aborted) setData(result); })
       .catch((value) => { if (!controller.signal.aborted) setError(earningsError(value)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [month, offset, retry]));
   function changeMonth(delta: number) {
-    setData(null); setSelected(null); setOffset(0); setMonth(shiftEarningsMonth(month, delta));
+    setData(null); setOffset(0); setMonth(shiftEarningsMonth(month, delta));
   }
-  const max = Math.max(1, ...(data?.dias.map((day) => day.monto) ?? []));
   return <SafeAreaView style={shared.page}>
     <ScrollView contentContainerStyle={shared.content}>
       <View style={shared.between}>
@@ -49,23 +69,10 @@ export function WorkerEarningsScreen() {
       </View> : data && <>
         <View style={styles.hero}>
           <Text style={styles.heroLabel}>Servicios completados</Text>
-          <Text adjustsFontSizeToFit numberOfLines={1} style={styles.amount}>{earningsMoney(data.total_completado)}</Text>
+          <Text style={styles.amount}>{earningsMoney(data.total_completado)}</Text>
           <Text style={styles.heroLabel}>{data.cantidad_completada} {data.cantidad_completada === 1 ? 'servicio completado' : 'servicios completados'}</Text>
         </View>
-        <View style={shared.card}>
-          <Text style={shared.section}>Ingresos diarios</Text>
-          <Text style={shared.hint}>Por fecha de finalización · Hora de Chile</Text>
-          {data.cantidad_completada === 0 ? <Text style={shared.text}>Aún no tienes ingresos de servicios completados este mes.</Text> : <>
-            <Text style={shared.value}>{selected ? `Día ${Number(selected.fecha.slice(-2))}: ${earningsMoney(selected.monto)}` : 'Toca una barra para ver el importe'}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.chart}>
-              {data.dias.map((day) => <Pressable key={day.fecha} accessibilityRole="button" accessibilityLabel={`Día ${Number(day.fecha.slice(-2))}: ${earningsMoney(day.monto)}`} accessibilityState={{ selected: selected?.fecha === day.fecha }} onPress={() => setSelected(day)} style={styles.column}>
-                <View style={styles.track}><View style={{ width: 14, height: day.monto ? Math.max(3, day.monto / max * 104) : 2, borderRadius: 5, backgroundColor: selected?.fecha === day.fecha ? '#D49C26' : day.monto ? '#087D56' : '#E0E8E3' }} /></View>
-                <Text style={shared.hint}>{Number(day.fecha.slice(-2))}</Text>
-              </Pressable>)}
-            </ScrollView>
-          </>}
-          <Text style={shared.hint}>Tu ganancia corresponde a la tarifa base. El 15 % de plataforma se suma al pago del cliente.</Text>
-        </View>
+        <EarningsChart days={data.dias} empty={data.cantidad_completada === 0} />
         <View style={shared.card}>
           <Text style={shared.section}>Servicios pagados en curso</Text>
           <Text style={styles.pending}>{earningsMoney(data.total_en_curso)}</Text>
@@ -77,7 +84,7 @@ export function WorkerEarningsScreen() {
           {!data.items.length && <Text style={shared.text}>No hay movimientos para este período.</Text>}
           {data.items.map((item) => <View key={item.solicitud_id} style={styles.item}>
             <Text style={shared.value}>{item.servicio_nombre}</Text>
-            <Text style={shared.hint}>{item.completada ? 'Finalizado' : 'Agendado'} · {new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(item.fecha))}</Text>
+            <Text style={shared.hint}>{item.completada ? 'Finalizado' : 'Agendado'} · {movementDate.format(new Date(item.fecha))}</Text>
             <View style={shared.between}><Text style={[shared.label, item.completada && shared.green]}>{item.completada ? 'Completado' : 'En curso · No sumado'}</Text><Text style={shared.value}>{earningsMoney(item.monto)}</Text></View>
           </View>)}
           {(offset > 0 || data.has_more) && <View style={shared.between}>
@@ -96,7 +103,7 @@ const styles = StyleSheet.create({
   hero: { backgroundColor: '#087D56', padding: 22, borderRadius: 22, gap: 8 },
   heroLabel: { color: '#E5F5ED', fontSize: 14 }, amount: { color: '#FFFFFF', fontSize: 36, fontWeight: '800' },
   pending: { color: '#162B22', fontSize: 26, fontWeight: '800' },
-  chart: { paddingVertical: 8, gap: 2 }, column: { width: 28, alignItems: 'center', minHeight: 140 },
+  chart: { paddingVertical: 8, gap: 6 }, column: { minWidth: 40, paddingHorizontal: 4, alignItems: 'center', minHeight: 140 },
   track: { height: 108, justifyContent: 'flex-end', marginBottom: 6 },
   item: { borderTopWidth: 1, borderTopColor: '#E0E8E3', paddingVertical: 12, gap: 6 },
 });

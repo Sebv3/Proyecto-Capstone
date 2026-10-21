@@ -19,6 +19,7 @@ export const catalogFiltersSchema = z.object({
 });
 export type CatalogFilterForm = z.input<typeof catalogFiltersSchema>;
 
+const catalogMoneyFormat = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 export function formatCatalogPrice(price: number): string {
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
+  return catalogMoneyFormat.format(price);
 }

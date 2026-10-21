@@ -262,7 +262,7 @@ export function ProfileScreen({
               <Text style={styles.label}>Teléfono (opcional)</Text>
               <Controller control={control} name="telefono" render={({ field: { value, onChange, onBlur } }) =>
                 <TextInput value={value} onChangeText={onChange} onBlur={onBlur} accessibilityLabel="Teléfono"
-                  keyboardType="phone-pad" placeholder="+56912345678" placeholderTextColor="#77847E"
+                  keyboardType="phone-pad" placeholder="+56912345678" placeholderTextColor="#52695C"
                   editable={!isSubmitting} style={[styles.input, errors.telefono && styles.invalid]} />} />
               {errors.telefono && <Text style={styles.fieldError}>{errors.telefono.message}</Text>}
             </>}
@@ -270,7 +270,7 @@ export function ProfileScreen({
             <Controller control={control} name="direccion" render={({ field: { value, onChange, onBlur } }) =>
               <TextInput value={value} onChangeText={onChange} onBlur={onBlur} accessibilityLabel="Dirección"
                 autoCapitalize="words" autoComplete="street-address" placeholder="Calle y número"
-                placeholderTextColor="#77847E" editable={!isSubmitting}
+                placeholderTextColor="#52695C" editable={!isSubmitting}
                 style={[styles.input, errors.direccion && styles.invalid]} />} />
             {errors.direccion && <Text style={styles.fieldError}>{errors.direccion.message}</Text>}
             <Text style={styles.label}>Comuna</Text>
@@ -377,13 +377,13 @@ const styles = StyleSheet.create({
   hint: { color: '#52615C', fontSize: 14 },
   success: { color: '#1D6949', backgroundColor: '#E7F3EC', padding: 12, borderRadius: 8, marginTop: 16 },
   error: { color: '#B42318', backgroundColor: '#FFF0EE', padding: 12, borderRadius: 8, marginTop: 16 },
-  groupLabel: { color: '#32745C', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginTop: 27, marginBottom: 2 },
+  groupLabel: { color: '#32745C', fontSize: 12, fontWeight: '800', letterSpacing: 1.2, marginTop: 27, marginBottom: 2 },
   row: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EDF1EE' },
   rowLabel: { color: '#65736E', fontSize: 12 }, rowValue: { color: '#14251F', fontSize: 16, marginTop: 4 },
   label: { color: '#14251F', fontSize: 14, fontWeight: '600', marginTop: 20, marginBottom: 8 },
   input: { minHeight: 52, borderWidth: 1, borderColor: '#C9D6CF', borderRadius: 10, paddingHorizontal: 12, fontSize: 16, color: '#14251F' },
   picker: { justifyContent: 'center' }, inputText: { color: '#14251F', fontSize: 16 },
-  placeholder: { color: '#77847E', fontSize: 16 }, invalid: { borderColor: '#B42318' },
+  placeholder: { color: '#52695C', fontSize: 16 }, invalid: { borderColor: '#B42318' },
   fieldError: { color: '#B42318', fontSize: 13, marginTop: 7 },
   primaryButton: { marginTop: 25, minHeight: 52, borderRadius: 10, backgroundColor: '#256047', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10, padding: 12 },
   primaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' }, disabled: { opacity: 0.55 },

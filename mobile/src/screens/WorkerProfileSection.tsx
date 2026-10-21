@@ -134,7 +134,7 @@ export function WorkerProfileSection({ onProfileCreated }: { onProfileCreated?: 
         <Text style={styles.label}>Dirección base</Text>
         <TextInput accessibilityLabel="Dirección base del trabajador" value={address}
           onChangeText={setAddress} editable={!busy} autoCapitalize="words" autoComplete="street-address"
-          placeholder="Calle y número" placeholderTextColor="#77847E" style={styles.input} />
+          placeholder="Calle y número" placeholderTextColor="#52695C" style={styles.input} />
         <Text style={styles.label}>Comuna</Text>
         <WorkerCommunePicker communes={communes} selectedId={communeId} onChange={setCommuneId} />
         {communesError && <>

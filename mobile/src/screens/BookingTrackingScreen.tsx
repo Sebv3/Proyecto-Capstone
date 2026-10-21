@@ -3,7 +3,8 @@ import { useFocusEffect, usePreventRemove, useNavigation } from '@react-navigati
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { textLayout } from '../services/accessibility';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { bookingOperationError, cancelBooking, changeBooking, completeBooking, getBooking, getConfirmationCode,
   type Booking, type BookingAction, type ConfirmationCode } from '../api/bookings';
@@ -22,6 +23,8 @@ import { bookingStyles as styles } from '../components/bookingStyles';
 
 type Action = BookingAction | 'cancelar' | 'completar' | 'codigo-confirmacion' | 'simular-pago';
 export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: string; role: BookingRole; onBack: () => void }) {
+  const { width, fontScale } = useWindowDimensions();
+  const { stacked } = textLayout(width, fontScale);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { withAccessToken } = useAuth();
   const request = useRef(withAccessToken); request.current = withAccessToken;
@@ -134,23 +137,23 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
   return <SafeAreaView style={[styles.page, tracking.page]}>
     <View style={[styles.header, styles.width]}><Pressable accessibilityRole="button" accessibilityLabel="Volver a solicitudes" disabled={busy} onPress={onBack} style={tracking.back}>
       <Ionicons name="arrow-back" size={22} color="#162B22" /></Pressable><Text accessibilityRole="header" style={tracking.title}>Solicitud #SM-{bookingId.slice(0, 8).toUpperCase()}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Actualizar estado" disabled={busy || loading} onPress={() => setRetry((n) => n + 1)} style={tracking.refresh}><Ionicons name="refresh-outline" size={19} color="#6B7D74" /></Pressable></View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Actualizar estado" disabled={busy || loading} onPress={() => setRetry((n) => n + 1)} style={tracking.refresh}><Ionicons name="refresh-outline" size={19} color="#52695C" /></Pressable></View>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         {loading && <View style={styles.state}><ActivityIndicator color="#087D56" /><Text style={styles.hint}>Actualizando estado…</Text></View>}
         {!!loadError && <Text accessibilityRole="alert" style={styles.error}>{loadError}</Text>}
         {!!loadError && <Pressable accessibilityRole="button" disabled={busy || loading} style={styles.action} onPress={() => setRetry((n) => n + 1)}><Text style={styles.link}>Reintentar</Text></Pressable>}
         {booking && !loading && <>
-          <View style={tracking.personCard}>
+          <View style={[tracking.personCard, stacked && tracking.stackedPerson]}>
             <View style={tracking.avatar}><Text style={tracking.initials}>{initials}</Text></View>
             <View style={styles.flex}><Text style={tracking.personName}>{person}</Text><Text style={tracking.meta}>{booking.servicio_nombre} · {formatBookingDate(booking.inicio_en)}</Text></View>
-            <View style={[tracking.badge, terminal && tracking.terminalBadge, terminal && booking.estado !== 'COMPLETADA' && tracking.cancelledBadge]}><Text style={[tracking.badgeText, terminal && tracking.terminalText, terminal && booking.estado !== 'COMPLETADA' && styles.error]}>{trackingBadges[booking.estado]}</Text></View>
+            <View style={[tracking.badge, stacked && tracking.stackedBadge, terminal && tracking.terminalBadge, terminal && booking.estado !== 'COMPLETADA' && tracking.cancelledBadge]}><Text style={[tracking.badgeText, terminal && tracking.terminalText, terminal && booking.estado !== 'COMPLETADA' && styles.error]}>{trackingBadges[booking.estado]}</Text></View>
           </View>
           {!!nameError && <Text accessibilityRole="alert" style={styles.error}>{nameError}</Text>}
           <BookingProgressCard booking={booking} role={role} />
           {booking.estado === 'COMPLETADA' && <BookingReviewCard bookingId={booking.id} role={role} />}
           {!terminal && <Pressable accessibilityRole="button" disabled={busy} onPress={() => navigation.navigate('ServiceChat', { bookingId })} style={[styles.button, tracking.chat]}><Ionicons name="chatbubble-outline" size={21} color="#FFFFFF" /><Text style={styles.buttonText}>Ir al chat</Text></Pressable>}
-          <Pressable accessibilityRole="button" accessibilityState={{ expanded: details }} onPress={() => setDetails((value) => !value)} style={tracking.detailsToggle}><Text style={tracking.detailsText}>Detalles del servicio</Text><Ionicons name={details ? 'chevron-up' : 'chevron-down'} size={18} color="#6B7D74" /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded: details }} onPress={() => setDetails((value) => !value)} style={tracking.detailsToggle}><Text style={tracking.detailsText}>Detalles del servicio</Text><Ionicons name={details ? 'chevron-up' : 'chevron-down'} size={18} color="#52695C" /></Pressable>
           {details && <View style={styles.card}>
             <Text style={styles.section}>{booking.servicio_nombre}</Text>
             <Text style={styles.hint}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'} · {booking.duracion_estimada_minutos} min</Text>
@@ -162,14 +165,13 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
           </View>}
           {!!paymentError && <Text accessibilityRole="alert" style={styles.error}>{paymentError}</Text>}
           {payment && <View style={styles.card}>
-            <Text style={styles.section}>{payment.pago ? payment.pago.proveedor === 'MERCADO_PAGO_TEST' ? 'Mercado Pago de prueba aprobado' : 'Pago simulado aprobado' : 'Pago del servicio'}</Text>
-            <Text style={styles.hint}>Simulación académica: no se cobra ni se transfiere dinero real.</Text>
+            <Text style={styles.section}>{payment.pago ? payment.pago.proveedor === 'MERCADO_PAGO_TEST' ? 'Pago aprobado con Mercado Pago' : 'Pago simulado aprobado' : 'Pago del servicio'}</Text>
             <View style={styles.between}><Text style={[styles.label, styles.flex]}>Tarifa del servicio</Text><Text style={styles.value}>{formatCatalogPrice(payment.tarifa_base)}</Text></View>
             <View style={styles.between}><Text style={[styles.label, styles.flex]}>Comisión de plataforma (15 %)</Text><Text style={styles.value}>{formatCatalogPrice(payment.comision)}</Text></View>
             <View style={styles.between}><Text style={[styles.label, styles.flex]}>Total</Text><Text style={styles.value}>{formatCatalogPrice(payment.monto_total)}</Text></View>
-            {payment.pago && <Text selectable style={styles.hint}>Comprobante de prueba: {payment.pago.id}{payment.pago.proveedor_pago_id ? ` · Mercado Pago: ${payment.pago.proveedor_pago_id}` : ''}</Text>}
+            {payment.pago && <Text selectable style={styles.hint}>Comprobante: {payment.pago.id}{payment.pago.proveedor_pago_id ? ` · Mercado Pago: ${payment.pago.proveedor_pago_id}` : ''}</Text>}
             {booking.estado === 'ACEPTADA' && paymentBlocked && <Text accessibilityRole="alert" style={styles.error}>{paymentBlocked}</Text>}
-            {booking.estado === 'ACEPTADA' && !paymentBlocked && role === 'TRABAJADOR' && <Text style={styles.text}>El cliente debe completar el pago de prueba para continuar.</Text>}
+            {booking.estado === 'ACEPTADA' && !paymentBlocked && role === 'TRABAJADOR' && <Text style={styles.text}>El cliente debe completar el pago para continuar.</Text>}
           </View>}
           {paymentMode === 'MERCADO_PAGO_TEST' && !['PENDIENTE', 'RECHAZADA'].includes(booking.estado) && <MercadoPagoCard bookingId={bookingId}
             canPay={role === 'CLIENTE' && booking.estado === 'ACEPTADA' && !paymentBlocked && !!payment && !payment.pago}
@@ -208,12 +210,13 @@ const tracking = StyleSheet.create({
   page: { backgroundColor: '#F3F6F5' }, back: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E8E3', justifyContent: 'center', alignItems: 'center' },
   title: { flex: 1, color: '#162B22', fontSize: 17, fontWeight: '800' }, refresh: { padding: 10 },
   personCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1, borderColor: '#E0E8E3', borderRadius: 18, backgroundColor: '#FFFFFF', boxShadow: '0px 5px 16px rgba(22,43,34,0.05)' },
+  stackedPerson: { flexDirection: 'column', alignItems: 'stretch' }, stackedBadge: { maxWidth: '100%', alignSelf: 'flex-start' },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E3F3EC', alignItems: 'center', justifyContent: 'center' }, initials: { color: '#087D56', fontSize: 15, fontWeight: '800' },
-  personName: { color: '#162B22', fontSize: 14, fontWeight: '800' }, meta: { color: '#6B7D74', fontSize: 12, lineHeight: 17, marginTop: 3 },
-  badge: { backgroundColor: '#E8EEFF', borderRadius: 20, paddingVertical: 7, paddingHorizontal: 10, maxWidth: 100 }, badgeText: { color: '#3267E9', fontSize: 11, fontWeight: '700' },
+  personName: { color: '#162B22', fontSize: 14, fontWeight: '800' }, meta: { color: '#52695C', fontSize: 12, lineHeight: 17, marginTop: 3 },
+  badge: { backgroundColor: '#E8EEFF', borderRadius: 20, paddingVertical: 7, paddingHorizontal: 10, maxWidth: 100 }, badgeText: { color: '#2458C7', fontSize: 12, fontWeight: '700' },
   terminalBadge: { backgroundColor: '#E3F3EC' }, terminalText: { color: '#087D56' }, chat: { borderRadius: 16, minHeight: 52 },
   cancelledBadge: { backgroundColor: '#FFF0EE' },
-  detailsToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, minHeight: 44 }, detailsText: { color: '#6B7D74', fontWeight: '600', fontSize: 13 },
+  detailsToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, minHeight: 44 }, detailsText: { color: '#52695C', fontWeight: '600', fontSize: 13 },
   danger: { backgroundColor: '#A74444' },
   code: { fontSize: 30, fontWeight: '900', color: '#087D56', letterSpacing: 5 },
 });

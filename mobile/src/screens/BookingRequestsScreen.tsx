@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { memo, useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View, type ListRenderItemInfo } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOOKING_PAGE_SIZE, bookingOperationError, getBookings, type Booking, type BookingFilters, type BookingStatus, type BookingView } from '../api/bookings';
 import { useAuth } from '../auth/AuthContext';
@@ -11,6 +11,24 @@ import { formatCatalogPrice } from '../services/catalogFilters';
 import { BookingCalendar } from '../components/BookingCalendar';
 import { bookingStyles as styles } from '../components/bookingStyles';
 import { bookingAttention, bookingStatusColor, bookingViewStates, mergeBookings } from '../services/bookingRequests';
+
+const bookingKey = (booking: Booking) => booking.id;
+const BookingSeparator = () => <View style={{ height: 16 }} />;
+const BookingRequestItem = memo(function BookingRequestItem({ booking, isClient, organized, onBooking }: {
+  booking: Booking; isClient: boolean; organized: boolean; onBooking: (id: string) => void;
+}) {
+  const attention = isClient ? bookingAttention(booking) : null;
+  return <Pressable accessibilityRole="button" accessibilityLabel={'Ver solicitud de ' + booking.servicio_nombre}
+    onPress={() => onBooking(booking.id)} style={[styles.card, organized && { padding: 16, gap: 6 }]}>
+    <View style={styles.between}><Text style={[styles.section, styles.flex]}>{booking.servicio_nombre}</Text><Ionicons name="chevron-forward" size={20} color="#087D56" /></View>
+    <Text style={[styles.value, { color: organized ? bookingStatusColor(booking.estado) : '#087D56' }]}>{bookingStatusLabels[booking.estado]}</Text>
+    <Text style={styles.text}>{organized ? 'Cita: ' : ''}{formatBookingDate(booking.inicio_en)}</Text>
+    <Text style={styles.hint}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'} · {organized ? 'Precio base: ' : `${booking.duracion_estimada_minutos} min · `}{formatCatalogPrice(booking.precio_base)}</Text>
+    {!isClient && organized && <Text style={styles.hint}>Duración: {booking.duracion_estimada_minutos} min</Text>}
+    {!!attention && <Text style={[styles.hint, { color: '#895A08', fontWeight: '700' }]}>{attention}</Text>}
+    {!isClient && <Text style={styles.text}>{booking.ubicacion_servicio}</Text>}
+  </Pressable>;
+});
 
 export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvailability }: {
   role: BookingRole; onBooking: (id: string) => void; agenda?: boolean; onAvailability?: () => void;
@@ -64,8 +82,9 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
   const states = Object.keys(bookingStatusLabels) as BookingStatus[];
   const options = organized ? bookingViewStates[view] : states.filter((state) => !['PENDIENTE', 'CANCELADA', 'RECHAZADA'].includes(state));
   function refresh() { if (!loading && !moreLoading) setRetry((n) => n + 1); }
-  return <SafeAreaView style={styles.page}>
-    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading && items.length > 0} onRefresh={refresh} tintColor="#087D56" />}>
+  const renderBooking = useCallback(({ item }: ListRenderItemInfo<Booking>) => <BookingRequestItem
+    booking={item} isClient={isClient} organized={organized} onBooking={onBooking} />, [isClient, organized, onBooking]);
+  const header = <View style={{ gap: 16, marginBottom: 16 }}>
       <Text style={styles.eyebrow}>{role === 'TRABAJADOR' ? 'PANEL DEL TRABAJADOR' : 'MIS SERVICIOS'}</Text>
       <Text accessibilityRole="header" style={[styles.headerTitle, { fontSize: 27, flex: 0 }]}>{agenda ? 'Reservas de mi agenda' : role === 'TRABAJADOR' ? 'Solicitudes recibidas' : 'Mis solicitudes'}</Text>
       <Text style={styles.text}>{agenda ? 'Reservas aceptadas y su avance, ordenadas por la hora de inicio del día elegido.'
@@ -90,12 +109,17 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
           <Ionicons name={filterOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#52695C" />
         </Pressable>
       </>}
-      {(!organized || filterOpen) && <ScrollView horizontal={!organized} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+      {(!organized || filterOpen) && (organized ? <View style={{ gap: 8, paddingVertical: 4 }}>
         {(['', ...options] as (BookingStatus | '')[]).map((state) => <Pressable key={state || 'ALL'} accessibilityRole="button"
           accessibilityState={{ selected: filter === state }} onPress={() => { setFilter(state); setFilterOpen(false); }} style={[styles.chip, filter === state && styles.active]}>
           <Text style={[styles.label, filter === state && styles.green]}>{state ? bookingStatusLabels[state] : 'Todas'}</Text>
         </Pressable>)}
-      </ScrollView>}
+      </View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+        {(['', ...options] as (BookingStatus | '')[]).map((state) => <Pressable key={state || 'ALL'} accessibilityRole="button"
+          accessibilityState={{ selected: filter === state }} onPress={() => { setFilter(state); setFilterOpen(false); }} style={[styles.chip, filter === state && styles.active]}>
+          <Text style={[styles.label, filter === state && styles.green]}>{state ? bookingStatusLabels[state] : 'Todas'}</Text>
+        </Pressable>)}
+      </ScrollView>)}
       <Pressable accessibilityRole="button" style={styles.action} disabled={loading || moreLoading} onPress={refresh}><Text style={styles.link}>Actualizar solicitudes</Text></Pressable>
       {loading && !items.length && <View style={styles.state}><ActivityIndicator color="#087D56" /><Text style={styles.hint}>Consultando solicitudes…</Text></View>}
       {!!error && <View style={styles.card}><Text accessibilityRole="alert" style={styles.error}>{error}</Text>
@@ -103,19 +127,15 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
       {!loading && !error && !items.length && <View style={styles.card}><Ionicons name="calendar-outline" size={32} color="#82968A" />
         <Text style={styles.section}>{agenda ? 'No tienes reservas para esta fecha' : 'No hay solicitudes en este filtro'}</Text>
         <Text style={styles.hint}>{agenda ? 'Las solicitudes aparecen aquí una vez aceptadas.' : 'Puedes cambiar el filtro o actualizar la lista.'}</Text></View>}
-      {items.map((booking) => <Pressable key={booking.id} accessibilityRole="button" accessibilityLabel={'Ver solicitud de ' + booking.servicio_nombre}
-        onPress={() => onBooking(booking.id)} style={[styles.card, organized && { padding: 16, gap: 6 }]}>
-        <View style={styles.between}><Text style={[styles.section, styles.flex]}>{booking.servicio_nombre}</Text><Ionicons name="chevron-forward" size={20} color="#087D56" /></View>
-        <Text style={[styles.value, { color: organized ? bookingStatusColor(booking.estado) : '#087D56' }]}>{bookingStatusLabels[booking.estado]}</Text>
-        <Text style={styles.text}>{organized ? 'Cita: ' : ''}{formatBookingDate(booking.inicio_en)}</Text>
-        <Text style={styles.hint}>{booking.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En local / taller'} · {organized ? 'Precio base: ' : `${booking.duracion_estimada_minutos} min · `}{formatCatalogPrice(booking.precio_base)}</Text>
-        {!isClient && organized && <Text style={styles.hint}>Duración: {booking.duracion_estimada_minutos} min</Text>}
-        {isClient && bookingAttention(booking) && <Text style={[styles.hint, { color: '#895A08', fontWeight: '700' }]}>{bookingAttention(booking)}</Text>}
-        {!isClient && <Text style={styles.text}>{booking.ubicacion_servicio}</Text>}
-      </Pressable>)}
-      {hasMore && <Pressable accessibilityRole="button" disabled={loading || moreLoading} onPress={() => void more()} style={styles.button}>
+    </View>;
+  return <SafeAreaView style={styles.page}>
+    <FlatList data={items} keyExtractor={bookingKey} renderItem={renderBooking}
+      initialNumToRender={8} maxToRenderPerBatch={8} windowSize={5} removeClippedSubviews={false}
+      contentContainerStyle={[styles.content, { gap: 0 }]} ItemSeparatorComponent={BookingSeparator}
+      refreshControl={<RefreshControl refreshing={loading && items.length > 0} onRefresh={refresh} tintColor="#087D56" />}
+      ListHeaderComponent={header}
+      ListFooterComponent={hasMore ? <Pressable accessibilityRole="button" disabled={loading || moreLoading} onPress={() => void more()} style={[styles.button, { marginTop: 16 }]}>
         {moreLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Cargar más</Text>}
-      </Pressable>}
-    </ScrollView>
+      </Pressable> : null} />
   </SafeAreaView>;
 }

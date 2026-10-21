@@ -11,10 +11,10 @@ import { CheckoutBrowserError, launchCheckout } from '../services/checkoutLaunch
 
 const messages: Record<MercadoPagoCheckout['estado'], string> = {
   CREANDO: 'El checkout se está preparando. Actualiza antes de reintentar.',
-  LISTO: 'Checkout preparado. Completa el pago de prueba en Mercado Pago.',
+  LISTO: 'Todo listo. Completa el pago en Mercado Pago.',
   PENDIENTE: 'Pago pendiente de confirmación. Espera el resultado antes de volver a pagar.',
   RECHAZADO: 'El intento fue rechazado o cancelado. Puedes volver al checkout para reintentar.',
-  APROBADO: 'Pago de prueba aprobado y confirmado por el servidor.',
+  APROBADO: 'Pago aprobado y confirmado.',
   REVISION: 'Este pago requiere revisión. No vuelvas a pagar; contacta al administrador.',
 };
 export function MercadoPagoCard({ bookingId, canPay, approved, onConfirmed }: {
@@ -82,15 +82,16 @@ export function MercadoPagoCard({ bookingId, canPay, approved, onConfirmed }: {
       if (refreshOnClose) setRetry((value) => value + 1);
     }
   }
+  if (approved && checkout?.estado !== 'REVISION') return error
+    ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null;
   return <View style={styles.card}>
-    <Text style={styles.section}>Mercado Pago · Modo de prueba</Text>
-    <Text style={styles.text}>Paga con el comprador y las tarjetas de prueba. No se cobrará dinero real.</Text>
+    <Text style={styles.section}>Mercado Pago</Text>
+    <Text style={styles.hint}>Entorno de demostración: no se cobrará dinero real.</Text>
     {loading ? <View style={styles.row}><ActivityIndicator accessibilityLabel="Consultando estado del pago" color="#087D56" /><Text style={styles.hint}>Consultando estado del pago…</Text></View> : checkout && <Text accessibilityLiveRegion="polite" style={styles.text}>{messages[checkout.estado]}</Text>}
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     {canPay && !approved && !['PENDIENTE', 'REVISION', 'APROBADO'].includes(checkout?.estado ?? '') && <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || loading || !checked }} disabled={busy || loading || !checked} onPress={() => void pay()} style={[styles.button, (busy || loading || !checked) && styles.disabled]}>
-      {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>{checkout?.checkout_url ? 'Volver al checkout de prueba' : 'Pagar con Mercado Pago'}</Text>}
+      {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>{checkout?.checkout_url ? 'Volver a Mercado Pago' : 'Pagar con Mercado Pago'}</Text>}
     </Pressable>}
-    <Text style={styles.hint}>Al terminar, vuelve a Expo Go. El estado se verificará al regresar; también puedes actualizarlo aquí.</Text>
-    <Pressable accessibilityRole="button" disabled={busy || loading} onPress={() => setRetry((value) => value + 1)} style={styles.action}><Text style={styles.link}>Consultar estado del pago</Text></Pressable>
+    <Text style={styles.hint}>Al terminar, vuelve a Expo Go. El estado se verificará al regresar.</Text>
   </View>;
 }

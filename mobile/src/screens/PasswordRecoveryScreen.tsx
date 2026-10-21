@@ -75,7 +75,7 @@ export function PasswordRecoveryScreen({ navigation }: NativeStackScreenProps<Ro
             <Text style={styles.label}>Correo electrónico</Text>
             <TextInput value={email} onChangeText={(value) => { setEmail(value); setError(null); }}
               editable={!busy && stage === 'email'} accessibilityLabel="Correo electrónico"
-              placeholder="tu@correo.cl" placeholderTextColor="#77847E" autoCapitalize="none"
+              placeholder="tu@correo.cl" placeholderTextColor="#52695C" autoCapitalize="none"
               autoCorrect={false} keyboardType="email-address" autoComplete="email"
               style={styles.input} />
             {stage === 'reset' && <>
@@ -83,17 +83,17 @@ export function PasswordRecoveryScreen({ navigation }: NativeStackScreenProps<Ro
               <TextInput value={code} onChangeText={(value) => { setCode(value); setError(null); }}
                 editable={!busy} accessibilityLabel="Código de recuperación" keyboardType="number-pad"
                 autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={10}
-                placeholder="Código del correo" placeholderTextColor="#77847E" style={styles.input} />
+                placeholder="Código del correo" placeholderTextColor="#52695C" style={styles.input} />
               <Text style={styles.label}>Nueva contraseña</Text>
               <TextInput value={password} onChangeText={(value) => { setPassword(value); setError(null); }}
                 editable={!busy} accessibilityLabel="Nueva contraseña" secureTextEntry={!showPassword}
                 autoCapitalize="none" autoCorrect={false} autoComplete="new-password" maxLength={128}
-                placeholder="Al menos ocho caracteres" placeholderTextColor="#77847E" style={styles.input} />
+                placeholder="Al menos ocho caracteres" placeholderTextColor="#52695C" style={styles.input} />
               <Text style={styles.label}>Confirmar nueva contraseña</Text>
               <TextInput value={confirmPassword} onChangeText={(value) => { setConfirmPassword(value); setError(null); }}
                 editable={!busy} accessibilityLabel="Confirmar nueva contraseña" secureTextEntry={!showPassword}
                 autoCapitalize="none" autoCorrect={false} autoComplete="new-password" maxLength={128}
-                placeholder="Repite tu nueva contraseña" placeholderTextColor="#77847E" style={styles.input} />
+                placeholder="Repite tu nueva contraseña" placeholderTextColor="#52695C" style={styles.input} />
               <Pressable accessibilityRole="button" onPress={() => setShowPassword(!showPassword)} style={styles.linkButton}>
                 <Text style={styles.link}>{showPassword ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}</Text>
               </Pressable>

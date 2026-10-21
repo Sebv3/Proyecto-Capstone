@@ -1,13 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { memo, useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ListRenderItemInfo } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { catalogErrorMessage, getCategories, searchServices, type CatalogFilters, type CatalogService, type Category } from '../api/catalog';
 import { blurFocusedElementOnWeb } from '../navigation/webFocus';
 import { catalogFiltersSchema, formatCatalogPrice, type CatalogFilterForm } from '../services/catalogFilters';
+import { appendUniqueById } from '../services/listData';
 
 const emptyForm: CatalogFilterForm = { q: '', categoria_id: '', modalidad: '', precio_min: '', precio_max: '' };
 const PAGE_SIZE = 20;
+const serviceKey = (item: CatalogService) => item.id;
+const CatalogServiceItem = memo(function CatalogServiceItem({ item, onService }: { item: CatalogService; onService: (id: string) => void }) {
+  return <Pressable accessibilityRole="button" accessibilityLabel={`Ver ${item.nombre}`}
+    onPress={() => { blurFocusedElementOnWeb(); onService(item.id); }} style={styles.serviceCard}>
+    <View style={styles.serviceBody}>
+      <Text style={styles.serviceName}>{item.nombre}</Text>
+      <Text style={styles.hint}>{item.categoria.nombre}</Text>
+      <Text style={styles.hint}>{item.trabajador.nombre} · {item.trabajador.comuna?.nombre ?? 'Comuna no informada'}</Text>
+      <Text style={styles.mode}>{item.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En taller'} · {item.duracion_estimada_minutos} min</Text>
+      <Text style={styles.price}>{formatCatalogPrice(item.precio_base)} <Text style={styles.hint}>precio base</Text></Text>
+    </View>
+    <Ionicons name="chevron-forward" size={22} color="#52695C" />
+  </Pressable>;
+});
 
 export function ServiceSearchScreen({ initialCategoryId, onService }: {
   initialCategoryId?: string; onService: (id: string) => void;
@@ -44,7 +59,7 @@ export function ServiceSearchScreen({ initialCategoryId, onService }: {
     setError('');
     void searchServices(filters, PAGE_SIZE, offset, controller.signal).then((result) => {
       if (controller.signal.aborted) return;
-      setItems((current) => offset === 0 ? result.items : [...current, ...result.items.filter((item) => !current.some((existing) => existing.id === item.id))]);
+      setItems((current) => offset === 0 ? result.items : appendUniqueById(current, result.items));
       if (offset === 0 || result.items.length) setTotal(result.total);
       setHasMore(result.items.length > 0 && offset + result.items.length < result.total);
     }).catch((reason) => {
@@ -83,7 +98,7 @@ export function ServiceSearchScreen({ initialCategoryId, onService }: {
     <Text accessibilityRole="header" style={styles.title}>Buscar servicios</Text>
     <Text style={styles.hint}>Encuentra un servicio para lo que necesitas.</Text>
     <View style={styles.searchRow}>
-      <TextInput accessibilityLabel="Buscar por nombre o descripción" placeholder="Ej. grifería o reparación" placeholderTextColor="#82918B"
+      <TextInput accessibilityLabel="Buscar por nombre o descripción" placeholder="Ej. grifería o reparación" placeholderTextColor="#52695C"
         value={form.q} onChangeText={(text) => change('q', text)} maxLength={100} returnKeyType="search"
         onSubmitEditing={() => apply()} style={[styles.input, styles.flex]} />
       <Pressable accessibilityRole="button" accessibilityLabel="Buscar servicios" onPress={() => apply()} style={styles.searchButton}>
@@ -122,7 +137,7 @@ export function ServiceSearchScreen({ initialCategoryId, onService }: {
         {(['precio_min', 'precio_max'] as const).map((name) => <View key={name} style={styles.flex}>
           <Text style={styles.label}>{name === 'precio_min' ? 'Precio mínimo' : 'Precio máximo'}</Text>
           <TextInput accessibilityLabel={name === 'precio_min' ? 'Precio mínimo en CLP' : 'Precio máximo en CLP'}
-            value={form[name]} onChangeText={(text) => change(name, text)} placeholder="CLP" placeholderTextColor="#82918B"
+            value={form[name]} onChangeText={(text) => change(name, text)} placeholder="CLP" placeholderTextColor="#52695C"
             keyboardType="number-pad" inputMode="numeric" maxLength={16} style={styles.input} />
           {!!fieldErrors[name] && <Text accessibilityRole="alert" style={styles.error}>{fieldErrors[name]}</Text>}
         </View>)}
@@ -132,22 +147,14 @@ export function ServiceSearchScreen({ initialCategoryId, onService }: {
     <Text accessibilityLiveRegion="polite" style={styles.resultCount}>{loading && offset === 0 ? 'Buscando…' : `${total} ${total === 1 ? 'servicio encontrado' : 'servicios encontrados'}`}</Text>
   </View>;
 
+  const renderService = useCallback(({ item }: ListRenderItemInfo<CatalogService>) => <CatalogServiceItem item={item} onService={onService} />, [onService]);
   return <SafeAreaView style={styles.page}>
-    <FlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.content}
+    <FlatList data={items} keyExtractor={serviceKey} contentContainerStyle={styles.content}
+      initialNumToRender={8} maxToRenderPerBatch={8} windowSize={5} removeClippedSubviews={false}
       keyboardShouldPersistTaps="handled" ListHeaderComponent={header}
-      renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`Ver ${item.nombre}`}
-        onPress={() => { blurFocusedElementOnWeb(); onService(item.id); }} style={styles.serviceCard}>
-        <View style={styles.serviceBody}>
-          <Text style={styles.serviceName}>{item.nombre}</Text>
-          <Text style={styles.hint}>{item.categoria.nombre}</Text>
-          <Text style={styles.hint}>{item.trabajador.nombre} · {item.trabajador.comuna?.nombre ?? 'Comuna no informada'}</Text>
-          <Text style={styles.mode}>{item.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En taller'} · {item.duracion_estimada_minutos} min</Text>
-          <Text style={styles.price}>{formatCatalogPrice(item.precio_base)} <Text style={styles.hint}>precio base</Text></Text>
-        </View>
-        <Ionicons name="chevron-forward" size={22} color="#82918B" />
-      </Pressable>}
+      renderItem={renderService}
       ListEmptyComponent={!loading && !error ? <View style={styles.state}>
-        <Ionicons name="search-outline" size={32} color="#82918B" />
+        <Ionicons name="search-outline" size={32} color="#52695C" />
         <Text style={styles.serviceName}>No encontramos servicios</Text>
         <Text style={styles.hint}>Prueba con otras palabras o ajusta los filtros.</Text>
       </View> : null}
@@ -165,7 +172,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 42, width: '100%', maxWidth: 680, alignSelf: 'center' },
   flex: { flex: 1 },
   title: { color: '#14251F', fontSize: 26, fontWeight: '900' },
-  hint: { color: '#66756F', fontSize: 12, lineHeight: 18, marginTop: 4 },
+  hint: { color: '#52695C', fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 },
   input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#C9D6CF', borderRadius: 12, minHeight: 50, padding: 12, color: '#14251F', fontSize: 14, marginTop: 5 },
   searchButton: { width: 52, height: 50, marginTop: 5, borderRadius: 12, backgroundColor: '#087A57', alignItems: 'center', justifyContent: 'center' },
@@ -184,7 +191,7 @@ const styles = StyleSheet.create({
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   error: { color: '#A74444', fontSize: 12, lineHeight: 18, marginTop: 5 },
   spinner: { marginVertical: 8 },
-  resultCount: { color: '#66756F', fontSize: 13, marginVertical: 18 },
+  resultCount: { color: '#52695C', fontSize: 13, marginVertical: 18 },
   serviceCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#DCE6E1', marginBottom: 10 },
   serviceBody: { flex: 1 },
   serviceName: { color: '#14251F', fontSize: 16, fontWeight: '800' },

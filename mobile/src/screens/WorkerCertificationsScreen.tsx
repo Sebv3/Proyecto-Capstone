@@ -107,7 +107,7 @@ export function WorkerCertificationsContent({ initialCategoryId, onBack }: { ini
           <Text style={styles.label}>{selectedCategory.nombre}</Text>
           {locked ? <Text style={styles.hint}>{selected?.estado === 'APROBADA' ? 'Tu certificación está aprobada. Ya puedes publicar servicios de esta categoría.' : 'El documento está en revisión. No puedes reemplazarlo mientras esté pendiente.'}</Text> : <>
             <Text style={styles.hint}>{selected?.estado === 'RECHAZADA' ? 'Adjunta un nuevo documento para solicitar otra revisión.' : 'Adjunta el certificado o licencia indicado para esta categoría.'}</Text>
-            <TextInput accessibilityLabel="Nombre de la certificación" placeholder="Nombre del certificado o licencia" placeholderTextColor="#82918B"
+            <TextInput accessibilityLabel="Nombre de la certificación" placeholder="Nombre del certificado o licencia" placeholderTextColor="#52695C"
               value={name} onChangeText={setName} maxLength={120} editable={!disabled} style={styles.input} />
             <Pressable accessibilityRole="button" disabled={disabled} onPress={() => void pick()} style={styles.linkButton}>
               <Ionicons name="attach" size={24} color="#256047" /><Text style={styles.link}>{asset ? 'Cambiar documento' : 'Elegir documento'}</Text>
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 }, page: { flex: 1, backgroundColor: '#F5F7F6' },
   content: { padding: 16, paddingBottom: 42, width: '100%', maxWidth: 680, alignSelf: 'center' },
   title: { color: '#14251F', fontSize: 26, fontWeight: '900', marginTop: 8 },
-  hint: { color: '#66756F', fontSize: 13, lineHeight: 19, marginTop: 6 },
+  hint: { color: '#52695C', fontSize: 13, lineHeight: 19, marginTop: 6 },
   label: { color: '#14251F', fontSize: 14, fontWeight: '700' },
   linkButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
   link: { color: '#256047', fontSize: 14, fontWeight: '700' },

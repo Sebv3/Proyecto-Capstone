@@ -162,7 +162,7 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
                   <Text style={styles.label}>{label}</Text>
                   <Controller control={control} name={name} render={({ field: { value, onChange, onBlur, ref } }) => (
                     <TextInput ref={ref} value={value} onChangeText={(text) => { setError(null); onChange(text); }} onBlur={onBlur}
-                      accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#77847E"
+                      accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#52695C"
                       style={[styles.input, errors[name] && styles.invalid]} editable={!isSubmitting}
                       autoCapitalize={name === 'nombre' ? 'words' : 'none'} autoCorrect={false}
                       keyboardType={name === 'email' ? 'email-address' : name === 'telefono' ? 'phone-pad' : 'default'}
@@ -179,7 +179,7 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
                   onBlur={onBlur}
                   accessibilityLabel={role === 'TRABAJADOR' ? 'Dirección base' : 'Dirección'}
                   placeholder="Calle, número y referencia"
-                  placeholderTextColor="#77847E"
+                  placeholderTextColor="#52695C"
                   style={[styles.input, errors.direccion && styles.invalid]}
                   editable={!isSubmitting}
                   autoCapitalize="words"
@@ -205,7 +205,7 @@ export function RegisterScreen({ navigation, route }: NativeStackScreenProps<Roo
                   <Text style={styles.label}>{label}</Text>
                   <Controller control={control} name={name} render={({ field: { value, onChange, onBlur, ref } }) => (
                     <TextInput ref={ref} value={value} onChangeText={(text) => { setError(null); onChange(text); }} onBlur={onBlur}
-                      accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#77847E"
+                      accessibilityLabel={label} placeholder={placeholder} placeholderTextColor="#52695C"
                       style={[styles.input, errors[name] && styles.invalid]} editable={!isSubmitting}
                       autoCapitalize="none" autoCorrect={false}
                       secureTextEntry={!showPassword} autoComplete="new-password"
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   link: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   linkText: { color: '#256047', fontWeight: '600', textAlign: 'center' },
   select: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  selectText: { color: '#14251F', fontSize: 16 }, placeholder: { color: '#77847E', fontSize: 16 },
+  selectText: { color: '#14251F', fontSize: 16 }, placeholder: { color: '#52695C', fontSize: 16 },
   modalPage: { flex: 1, backgroundColor: '#F5F7F6' },
   modalHeader: { padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#DCE6E1' },
   modalTitle: { color: '#14251F', fontSize: 22, fontWeight: '700', flex: 1 },

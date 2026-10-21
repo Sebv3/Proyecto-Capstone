@@ -156,7 +156,7 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
             <Pressable accessibilityRole="button" accessibilityLabel="Seleccionar categoría" disabled={disabled}
               onPress={() => { blurFocusedElementOnWeb(); setPickerOpen(true); }} style={[styles.input, styles.select, disabled && styles.disabled]}>
               <Text style={[styles.selectText, !selectedCategory && styles.placeholder]}>{selectedCategory?.nombre ?? 'Selecciona una categoría'}</Text>
-              <Ionicons name="chevron-down" size={20} color="#66756F" />
+              <Ionicons name="chevron-down" size={20} color="#52695C" />
             </Pressable>
             <Modal visible={pickerOpen} animationType="slide" onRequestClose={() => setPickerOpen(false)}>
               <SafeAreaView style={styles.page}>
@@ -193,7 +193,7 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
               <Controller control={control} name={field.name} render={({ field: { onChange, onBlur, value, ref } }) =>
                 <TextInput ref={ref} accessibilityLabel={field.label} value={value} onBlur={onBlur}
                   onChangeText={(text) => { onChange(text); setError(''); }} editable={!disabled}
-                  placeholder={field.placeholder} placeholderTextColor="#82918B" keyboardType={numeric ? 'number-pad' : 'default'}
+                  placeholder={field.placeholder} placeholderTextColor="#52695C" keyboardType={numeric ? 'number-pad' : 'default'}
                   inputMode={numeric ? 'numeric' : 'text'} multiline={field.name === 'descripcion'}
                   maxLength={'maxLength' in field ? field.maxLength : 16}
                   style={[styles.input, field.name === 'descripcion' && styles.description, disabled && styles.disabled]} />
@@ -221,7 +221,7 @@ export function PublishServiceScreen({ navigation, route }: NativeStackScreenPro
             <Text style={styles.label}>{modality === 'TALLER' ? 'Dirección pública del taller' : 'Sector público desde donde atiendes'}</Text>
             <Controller control={control} name="ubicacion_publica" render={({ field: { value, onChange, onBlur } }) =>
               <TextInput accessibilityLabel="Ubicación pública del servicio" style={styles.input} value={value} onChangeText={onChange} onBlur={onBlur}
-                editable={!disabled} maxLength={240} placeholder={modality === 'TALLER' ? 'Ej. Avenida Central 123' : 'Ej. Sector Plaza Central, Santiago'} placeholderTextColor="#82918B" />} />
+                editable={!disabled} maxLength={240} placeholder={modality === 'TALLER' ? 'Ej. Avenida Central 123' : 'Ej. Sector Plaza Central, Santiago'} placeholderTextColor="#52695C" />} />
             {errors.ubicacion_publica && <Text accessibilityRole="alert" style={styles.error}>{errors.ubicacion_publica.message}</Text>}
             {modality === 'TALLER' && <>
               <Controller control={control} name="comuna_taller_id" render={({ field: { value, onChange } }) =>
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   back: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
   link: { color: '#256047', fontWeight: '700', fontSize: 14 },
   title: { fontSize: 27, fontWeight: '900', color: '#14251F', marginTop: 8 },
-  hint: { color: '#66756F', fontSize: 12, lineHeight: 18, marginTop: 5 },
+  hint: { color: '#52695C', fontSize: 12, lineHeight: 18, marginTop: 5 },
   card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, marginTop: 20, borderWidth: 1, borderColor: '#DCE6E1' },
   label: { color: '#14251F', fontSize: 14, fontWeight: '700' },
   field: { marginTop: 20 },
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   description: { minHeight: 120, textAlignVertical: 'top' },
   select: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   selectText: { flex: 1, color: '#14251F', fontSize: 14 },
-  placeholder: { color: '#82918B' },
+  placeholder: { color: '#52695C' },
   disabled: { opacity: 0.5 },
   error: { color: '#A74444', fontSize: 13, marginTop: 8, lineHeight: 19 },
   notice: { padding: 14, backgroundColor: '#FFF6DF', borderRadius: 10, color: '#6F4709', fontSize: 13, marginTop: 12 },

@@ -413,7 +413,7 @@ un mensaje de apertura, separado de los errores del pago.
 
 Usar únicamente el comprador y tarjetas de prueba. La página de retorno invita a
 regresar manualmente a Expo Go; al recuperar foco o pasar a primer plano, la app
-consulta y concilia el resultado. También ofrece **Consultar estado del pago**.
+consulta y concilia el resultado. También se concilia al actualizar el seguimiento.
 Se pausa al salir de la pantalla y no ejecuta polling en segundo plano.
 PENDIENTE oculta la opción de pagar nuevamente; RECHAZADO permite reabrir el mismo
 checkout; APROBADO actualiza el seguimiento y muestra el comprobante; REVISION
@@ -424,3 +424,54 @@ Una solicitud ya vinculada al checkout no puede usar el RPC de simulación para 
 Ejecutar `npm run test:mercadopago` y `npm run typecheck`.
 La API de vista previa admite `PREVIEW_MERCADOPAGO=true`; sus datos y endpoints `/qa/*`
 son ficticios, no forman parte del backend de ServiMatch ni escriben en Supabase.
+
+## SCRUM-64: contraste y tamaños de texto
+
+Los textos secundarios y placeholders utilizan un verde oscuro legible sobre las
+tarjetas blancas y fondos claros. La paleta compartida se verifica contra el mínimo
+AA de 4,5:1. Las etiquetas pequeñas tienen al menos 12 unidades de tamaño base;
+no se desactiva el escalado del sistema ni se impone un máximo de ampliación.
+
+El seguimiento conserva sus cinco etapas horizontales. Con letra grande o pantallas
+estrechas permite desplazamiento horizontal para evitar recortes. Las pestañas admiten varias líneas y su altura contempla
+escala, ancho y área segura. El calendario aumenta las celdas y permite desplazar
+horizontalmente sus siete columnas cuando hace falta. Los nombres de servicios y
+el importe de ganancias ya no se recortan o encogen automáticamente.
+
+Comprobación técnica: `npm run typecheck` y `npm run test:accessibility`.
+La revisión visual web con datos ficticios cubre cliente y trabajador a 320/390 de
+ancho, solicitudes, seguimiento y calendario. No certifica toda la aplicación WCAG.
+
+Para cerrar la aceptación en un teléfono, aumentar el tamaño de letra del sistema
+hasta 200 % (o el máximo disponible), recargar Expo Go y revisar en ambos roles:
+
+- Inicio y catálogo: nombres completos y textos secundarios legibles.
+- Solicitudes, seguimiento y pago: estado, etapas y botones sin superposición.
+- Agenda: mes completo, día seleccionable y desplazamiento si las columnas exceden el ancho.
+- Chat: mensajes, cabecera y campo de escritura accesibles con teclado visible.
+- Ganancias y perfil: importes, etiquetas y valores completos; desplazamiento vertical disponible.
+- Navegación inferior: todos los nombres completos y pestañas seleccionables.
+
+Repetir con tamaño normal y volver a comprobar después de rotar el dispositivo.
+La pantalla externa de Mercado Pago depende del proveedor y no se modifica aquí.
+
+## SCRUM-65: listas y renders
+
+Solicitudes y chat utilizan `FlatList` como desplazamiento principal; no están
+anidados en otro ScrollView vertical. El catálogo conserva FlatList y ahora utiliza
+filas memoizadas y callbacks estables. Ventana de cinco pantallas y lotes de ocho;
+chat comienza con doce filas. Se mantienen alturas dinámicas para letra grande,
+claves por ID y recorte de subvistas desactivado para evitar contenido faltante.
+
+El chat presenta los últimos mensajes abajo con lista invertida y conserva la
+posición al cargar mensajes anteriores. Un snapshot sin cambios reutiliza array y
+objetos; una edición sustituye solo ese objeto y las eliminaciones del servidor se
+respetan. Escribir en el compositor no cambia las props de las burbujas. El polling
+sigue activo cada tres segundos solo con la pantalla visible, sin superponer lecturas.
+
+Ganancias conserva un máximo de 20 movimientos por página y 31 barras por mes. La
+selección pertenece al gráfico: no actualiza el resumen ni los movimientos. Se
+reutilizan los formateadores CLP y el formateador de fecha de movimientos.
+
+Verificación: `npm run typecheck`, `npm run test:performance` y el conjunto de
+pruebas de `tests/*.test.mjs`. Escenario y resultados en [tests/PERFORMANCE.md](tests/PERFORMANCE.md).

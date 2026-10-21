@@ -13,6 +13,7 @@ export function earningsMonthLabel(month: string): string {
   return new Intl.DateTimeFormat('es-CL', { timeZone: 'UTC', month: 'long', year: 'numeric' })
     .format(new Date(`${month}-01T12:00:00Z`));
 }
+const earningsMoneyFormat = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 export function earningsMoney(amount: number): string {
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(amount);
+  return earningsMoneyFormat.format(amount);
 }

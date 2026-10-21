@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFFFFF', padding: 18, marginTop: 18, borderRadius: 18, borderWidth: 1, borderColor: '#DCE6E1' },
   section: { color: '#14251F', fontSize: 18, fontWeight: '800' },
   label: { color: '#14251F', fontSize: 14, fontWeight: '700', marginTop: 10 },
-  hint: { color: '#66756F', fontSize: 13, lineHeight: 20, marginTop: 6 },
+  hint: { color: '#52695C', fontSize: 13, lineHeight: 20, marginTop: 6 },
   offer: { padding: 12, borderWidth: 1, borderColor: '#DCE6E1', borderRadius: 12, marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   selected: { borderColor: '#087A57', backgroundColor: '#EFF9F3' },
   input: { color: '#14251F', padding: 12, minHeight: 50, borderWidth: 1, borderColor: '#BCCDC4', borderRadius: 12, marginTop: 8 },

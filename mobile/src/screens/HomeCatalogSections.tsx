@@ -110,7 +110,7 @@ export function HomeCatalogSections({ onExplore, onCategory, onService }: Props)
           <View style={[styles.categoryIcon, { backgroundColor: colors.background }]}>
             <Ionicons name={categoryIcon(category.slug)} size={29} color={colors.foreground} />
           </View>
-          <Text numberOfLines={2} style={styles.categoryName}>{category.nombre}</Text>
+          <Text style={styles.categoryName}>{category.nombre}</Text>
         </Pressable>;
       })}
     </ScrollView>
@@ -123,7 +123,7 @@ export function HomeCatalogSections({ onExplore, onCategory, onService }: Props)
     </View>
     {services.length === 0
       ? <View style={styles.emptyCard}>
-        <Ionicons name="briefcase-outline" size={30} color="#82918B" />
+        <Ionicons name="briefcase-outline" size={30} color="#52695C" />
         <Text style={styles.emptyTitle}>Aún no hay servicios publicados</Text>
         <Text style={styles.emptyHint}>Los nuevos servicios aparecerán aquí.</Text>
       </View>
@@ -143,8 +143,8 @@ export function HomeCatalogSections({ onExplore, onCategory, onService }: Props)
             />
           </View>
           <View style={styles.serviceBody}>
-            <Text numberOfLines={1} style={styles.serviceName}>{service.nombre}</Text>
-            <Text numberOfLines={1} style={styles.serviceMeta}>
+            <Text style={styles.serviceName}>{service.nombre}</Text>
+            <Text style={styles.serviceMeta}>
               {service.trabajador.nombre} · {service.trabajador.comuna?.nombre ?? 'Comuna pendiente'}
             </Text>
             <Text style={styles.serviceMode}>
@@ -153,31 +153,31 @@ export function HomeCatalogSections({ onExplore, onCategory, onService }: Props)
             <Text style={styles.price}>{formatPrice(service.precio_base)}</Text>
             <Text style={styles.soonMeta}>Distancia y calificaciones · Próximamente</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#8A9993" />
+          <Ionicons name="chevron-forward" size={20} color="#52695C" />
         </Pressable>;
       })}
   </>;
 }
 
 const styles = StyleSheet.create({
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 26, marginBottom: 12 },
-  sectionLabel: { color: '#66756F', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  sectionHeader: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between', marginTop: 26, marginBottom: 12 },
+  sectionLabel: { color: '#52695C', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
   seeAll: { color: '#087A57', fontSize: 13, fontWeight: '800' },
   categories: { gap: 13, paddingRight: 8 },
   category: { width: 76, alignItems: 'center' },
   categoryIcon: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  categoryName: { color: '#52615C', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 7 },
+  categoryName: { color: '#52615C', fontSize: 12, lineHeight: 15, textAlign: 'center', marginTop: 7 },
   serviceCard: { flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE6E1', borderRadius: 18, padding: 12, marginBottom: 10 },
   serviceIcon: { width: 64, height: 64, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   serviceBody: { flex: 1 },
   serviceName: { color: '#14251F', fontSize: 15, fontWeight: '800' },
-  serviceMeta: { color: '#66756F', fontSize: 12, marginTop: 3 },
-  serviceMode: { color: '#32745C', fontSize: 11, fontWeight: '700', marginTop: 3 },
+  serviceMeta: { color: '#52695C', fontSize: 12, marginTop: 3 },
+  serviceMode: { color: '#32745C', fontSize: 12, fontWeight: '700', marginTop: 3 },
   price: { color: '#14251F', fontSize: 16, fontWeight: '800', marginTop: 4 },
-  soonMeta: { color: '#8A9993', fontSize: 10, marginTop: 3 },
+  soonMeta: { color: '#52695C', fontSize: 12, marginTop: 3 },
   emptyCard: { alignItems: 'center', padding: 24, backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1, borderColor: '#DCE6E1' },
   emptyTitle: { color: '#14251F', fontSize: 15, fontWeight: '700', marginTop: 10 },
-  emptyHint: { color: '#66756F', fontSize: 13, marginTop: 4 },
+  emptyHint: { color: '#52695C', fontSize: 13, marginTop: 4 },
   stateCard: { minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 24, padding: 18, backgroundColor: '#FFFFFF', borderRadius: 18 },
   stateText: { color: '#52615C', fontSize: 13, textAlign: 'center' },
   retryButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 18, borderRadius: 10, backgroundColor: '#E7F3EC' },

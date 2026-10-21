@@ -131,5 +131,5 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: 12, gap: 8 },
   localChip: { paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#DCE6E1', backgroundColor: '#FFFFFF' },
   selectedChip: { backgroundColor: '#DFF3E9', borderColor: '#00875A' },
-  chipHint: { color: '#52615C', fontSize: 11, paddingBottom: 8 },
+  chipHint: { color: '#52615C', fontSize: 12, paddingBottom: 8 },
 });

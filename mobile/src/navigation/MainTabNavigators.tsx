@@ -3,7 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useState, type ComponentProps } from 'react';
 import type { NavigatorScreenParams } from '@react-navigation/native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { readableColors, textLayout } from '../services/accessibility';
 import type { WorkerVerification } from '../api/workerVerification';
 import { ClientHomeScreen } from '../screens/ClientHomeScreen';
 import { WorkerEarningsScreen } from '../screens/WorkerEarningsScreen';
@@ -66,17 +68,28 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
   },
-  label: { fontSize: 11, fontWeight: '600' },
+  label: { fontSize: 12, lineHeight: 18, fontWeight: '600', textAlign: 'center', flexShrink: 1, alignSelf: 'stretch' },
 });
 
 const commonScreenOptions = {
   headerShown: false,
-  tabBarActiveTintColor: '#00875A',
-  tabBarInactiveTintColor: '#82918B',
+  tabBarActiveTintColor: readableColors.primary,
+  tabBarInactiveTintColor: readableColors.secondary,
   tabBarHideOnKeyboard: true,
   tabBarLabelStyle: styles.label,
   tabBarStyle: styles.tabBar,
 };
+
+function useAccessibleTabOptions() {
+  const { width, fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  return {
+    ...commonScreenOptions,
+    tabBarLabelPosition: 'below-icon' as const,
+    tabBarStyle: [styles.tabBar, { height: textLayout(width, fontScale).tabBarHeight + insets.bottom, paddingBottom: Math.max(7, insets.bottom) }],
+    tabBarLabel: ({ color, children }: { color: string; children: string }) => <Text style={[styles.label, { color }]}>{children}</Text>,
+  };
+}
 
 type ClientTabParamList = {
   ClientHome: undefined;
@@ -155,7 +168,8 @@ function ClientSearchNavigator({ initialCategoryId }: { initialCategoryId?: stri
 }
 
 export function ClientMainTabs() {
-  return <ClientTab.Navigator initialRouteName="ClientHome" screenOptions={commonScreenOptions}>
+  const screenOptions = useAccessibleTabOptions();
+  return <ClientTab.Navigator initialRouteName="ClientHome" screenOptions={screenOptions}>
     <ClientTab.Screen name="ClientHome" options={{
       title: 'Inicio', tabBarIcon: tabIcon('home', 'home-outline'),
     }}>
@@ -200,13 +214,13 @@ export type WorkerHomeStackParamList = {
 };
 const WorkerHomeStack = createNativeStackNavigator<WorkerHomeStackParamList>();
 
-function WorkerHomeNavigator({ verification, onRefresh, onAgenda, onEarnings }: {
-  verification: WorkerVerification; onRefresh: () => void; onAgenda: () => void; onEarnings: () => void;
+function WorkerHomeNavigator({ verification, onRefresh, onAgenda }: {
+  verification: WorkerVerification; onRefresh: () => void; onAgenda: () => void;
 }) {
   return <WorkerHomeStack.Navigator screenOptions={{ headerShown: false }}>
     <WorkerHomeStack.Screen name="WorkerDashboard">
       {({ navigation, route }) => <WorkerHomeScreen verification={verification} onRefresh={onRefresh}
-        onAgenda={onAgenda} onEarnings={onEarnings} onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })}
+        onAgenda={onAgenda} onBooking={(bookingId) => navigation.navigate('BookingTracking', { bookingId })}
         onPublish={() => navigation.navigate('PublishService')}
         onEdit={(serviceId) => navigation.navigate('PublishService', { serviceId })}
         onCertifications={() => navigation.navigate('WorkerCertifications')}
@@ -224,12 +238,12 @@ function WorkerHomeNavigator({ verification, onRefresh, onAgenda, onEarnings }: 
 export function WorkerMainTabs({
   verification, onRefresh,
 }: { verification: WorkerVerification; onRefresh: () => void }) {
-  return <WorkerTab.Navigator initialRouteName="WorkerHome" screenOptions={commonScreenOptions}>
+  const screenOptions = useAccessibleTabOptions();
+  return <WorkerTab.Navigator initialRouteName="WorkerHome" screenOptions={screenOptions}>
     <WorkerTab.Screen name="WorkerHome" options={{
       title: 'Inicio', tabBarIcon: tabIcon('home', 'home-outline'),
     }}>
       {({ navigation }) => <WorkerHomeNavigator verification={verification} onRefresh={onRefresh}
-        onEarnings={() => navigation.navigate('WorkerEarnings')}
         onAgenda={() => navigation.navigate('WorkerAgenda', { screen: 'AgendaHome', params: { reservations: true, requestKey: Date.now() } })} />}
     </WorkerTab.Screen>
     <WorkerTab.Screen name="WorkerAgenda" options={{

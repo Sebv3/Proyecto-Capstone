@@ -32,6 +32,8 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "test:accessibility": "node --experimental-strip-types --test tests/accessibility.test.mjs",
+    "test:performance": "node --experimental-strip-types --test tests/listData.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:auth": "node --experimental-strip-types --test tests/auth.test.mjs tests/workerRoleRequest.test.mjs",
     "test:services": "node --experimental-strip-types --test tests/services.test.mjs",

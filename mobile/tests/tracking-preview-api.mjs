@@ -4,13 +4,19 @@ const client = '55555555-5555-4555-8555-555555555555';
 const worker = '11111111-1111-4111-8111-111111111111';
 const workerPreview = process.env.PREVIEW_ROLE === 'TRABAJADOR';
 const mpPreview = process.env.PREVIEW_MERCADOPAGO === 'true';
+const listCount = Math.min(5000, Math.max(1, Number(process.env.PREVIEW_LIST_COUNT || 1)));
+const chatCount = Math.min(5000, Math.max(0, Number(process.env.PREVIEW_CHAT_COUNT || 0)));
 let checkout = null;
 const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(15, 0, 0, 0);
 const booking = { id: '2847aaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', servicio_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', cliente_id: client, trabajador_id: worker,
   cliente_nombre: 'Ana González', servicio_nombre: 'Destape de cañerías', precio_base: 25000, duracion_estimada_minutos: 60, modalidad: 'DOMICILIO', inicio_en: tomorrow.toISOString(),
   ubicacion_servicio: 'Dirección de demostración', comuna_servicio_nombre: 'Santiago', estado: 'PENDIENTE', creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
 let conversation = null;
-let messages = [];
+let messages = Array.from({ length: chatCount }, (_, index) => ({
+  id: `eeeeeeee-eeee-4eee-8eee-${String(index + 1).padStart(12, '0')}`,
+  conversacion_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', autor_id: index % 2 ? worker : client,
+  contenido: `Mensaje de demostración ${index + 1}`, creado_en: new Date(Date.now() - (chatCount - index) * 60000).toISOString(), editado_en: null,
+}));
 let review = null;
 const page = (params = new URLSearchParams()) => {
   const limit = Number(params.get('limit') || 50), offset = Number(params.get('offset') || 0);
@@ -42,9 +48,15 @@ http.createServer(async (req, res) => {
   }
   else if (path === '/solicitudes') {
     const view = url.searchParams.get('vista'), state = url.searchParams.get('estado');
-    const terminal = ['COMPLETADA', 'CANCELADA', 'RECHAZADA'].includes(booking.estado);
-    result = (state && state !== booking.estado) || (view === 'activas' && terminal)
-      || (view === 'historial' && !terminal) || Number(url.searchParams.get('offset') || 0) > 0 ? [] : [booking];
+    const rows = Array.from({ length: listCount }, (_, index) => index === 0 ? booking : { ...booking,
+      id: `2847aaaa-aaaa-4aaa-8aaa-${String(index).padStart(12, '0')}`, servicio_nombre: `Servicio de demostración ${index + 1}`,
+      estado: ['PENDIENTE', 'ACEPTADA', 'PAGADA', 'COMPLETADA'][index % 4],
+    }).filter((item) => {
+      const terminal = ['COMPLETADA', 'CANCELADA', 'RECHAZADA'].includes(item.estado);
+      return (!state || state === item.estado) && (view !== 'activas' || !terminal) && (view !== 'historial' || terminal);
+    });
+    const offset = Number(url.searchParams.get('offset') || 0), limit = Number(url.searchParams.get('limit') || 20);
+    result = rows.slice(offset, offset + limit);
   }
   else if (path === '/pagos/configuracion') result = { modo: mpPreview ? 'MERCADO_PAGO_TEST' : 'SIMULADO' };
   else if (path.includes('/pago/mercadopago')) {
@@ -56,7 +68,20 @@ http.createServer(async (req, res) => {
   }
   else if (path === `/solicitudes/${booking.id}`) result = booking;
   else if (path === '/categorias' || path === '/notificaciones') result = [];
-  else if (path === '/servicios') result = { items: [], total: 0, limit: 5, offset: 0 };
+  else if (path === '/servicios') {
+    const category = { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', nombre: 'Hogar', slug: 'hogar', descripcion: '', requiere_certificacion: false, certificacion_requerida: null, orden: 1 };
+    const rows = listCount === 1 ? [] : Array.from({ length: listCount }, (_, index) => ({
+      id: `bbbbbbbb-bbbb-4bbb-8bbb-${String(index).padStart(12, '0')}`, nombre: `Servicio de demostración ${index + 1}`,
+      descripcion: 'Datos ficticios para revisar listas', precio_base: 25000 + index * 100, duracion_estimada_minutos: 60,
+      modalidad: index % 2 ? 'TALLER' : 'DOMICILIO', categoria: category, trabajador: { id: worker, nombre: 'Juan Pérez', comuna: { id: 'demo', nombre: 'Santiago' } },
+      creado_en: booking.creado_en, actualizado_en: booking.actualizado_en, ubicacion_publica: 'Santiago', latitud: null, longitud: null, radio_cobertura_km: null,
+    })).filter((item) => (!url.searchParams.get('q') || item.nombre.toLowerCase().includes(url.searchParams.get('q').toLowerCase()))
+      && (!url.searchParams.get('modalidad') || item.modalidad === url.searchParams.get('modalidad'))
+      && (!url.searchParams.get('precio_min') || item.precio_base >= Number(url.searchParams.get('precio_min')))
+      && (!url.searchParams.get('precio_max') || item.precio_base <= Number(url.searchParams.get('precio_max'))));
+    const offset = Number(url.searchParams.get('offset') || 0), limit = Number(url.searchParams.get('limit') || 5);
+    result = { items: rows.slice(offset, offset + limit), total: rows.length, limit, offset };
+  }
   else if (path === `/servicios/${booking.servicio_id}`) result = { id: booking.servicio_id, trabajador: { id: worker, nombre: 'Juan Pérez' } };
   else if (path === '/notificaciones/sin-leer') result = { cantidad: 0 };
   else if (path.includes('/chat')) {
@@ -66,7 +91,7 @@ http.createServer(async (req, res) => {
     if (path.endsWith('/chat')) { if (req.method === 'POST') conversation = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'; result = page(url.searchParams); }
     else if (req.method === 'POST') {
       const existing = messages.find((item) => item.id === body.id);
-      result = existing || { id: body.id, conversacion_id: conversation, autor_id: client, contenido: body.contenido, creado_en: new Date().toISOString(), editado_en: null };
+      result = existing || { id: body.id, conversacion_id: conversation, autor_id: workerPreview ? worker : client, contenido: body.contenido, creado_en: new Date().toISOString(), editado_en: null };
       if (!existing) messages.push(result);
     } else {
       const id = path.split('/').at(-1); const item = messages.find((message) => message.id === id);

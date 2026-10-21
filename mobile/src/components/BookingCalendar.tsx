@@ -1,11 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { localBookingFields, parseBookingTime } from '../services/bookingForm';
+import { readableColors, textLayout } from '../services/accessibility';
 
 export function BookingCalendar({ value, onChange, disabled = false, isDayEnabled }: {
   value: string; onChange: (value: string) => void; disabled?: boolean; isDayEnabled?: (date: string) => boolean;
 }) {
+  const { width, fontScale } = useWindowDimensions();
+  const [availableWidth, setAvailableWidth] = useState(Math.min(width - 60, 620));
+  const { calendarCellHeight } = textLayout(width, fontScale);
   const [month, setMonth] = useState(() => {
     const day = parseBookingTime(value, '12:00') ?? new Date();
     return new Date(day.getFullYear(), day.getMonth(), 1);
@@ -27,30 +31,32 @@ export function BookingCalendar({ value, onChange, disabled = false, isDayEnable
         <Ionicons name={direction < 0 ? 'chevron-back' : 'chevron-forward'} size={17} color="#52685D" />
       </Pressable>)}</View>
     </View>
-    <View style={styles.grid}>{['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'].map((day) => <View key={day} style={styles.cell}><Text style={styles.weekday}>{day}</Text></View>)}
+    <ScrollView horizontal showsHorizontalScrollIndicator onLayout={(event) => setAvailableWidth(event.nativeEvent.layout.width)}>
+    <View style={[styles.grid, { width: Math.max(availableWidth, 7 * 32 * fontScale) }]}>{['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'].map((day) => <View key={day} style={[styles.cell, { minHeight: calendarCellHeight }]}><Text style={styles.weekday}>{day}</Text></View>)}
       {Array.from({ length: cells }, (_, index) => {
         const day = index - offset + 1;
-        if (day < 1 || day > count) return <View key={index} style={styles.cell} />;
+        if (day < 1 || day > count) return <View key={index} style={[styles.cell, { minHeight: calendarCellHeight }]} />;
         const date = localBookingFields(new Date(month.getFullYear(), month.getMonth(), day)).date;
         const unavailable = disabled || (isDayEnabled ? !isDayEnabled(date) : (parseBookingTime(date, '23:59')?.getTime() ?? 0) <= Date.now());
         const selected = date === value;
         return <Pressable key={index} accessibilityRole="button" accessibilityLabel={`Elegir ${date}`}
-          accessibilityState={{ selected, disabled: unavailable }} disabled={unavailable} onPress={() => onChange(date)} style={styles.cell}>
+          accessibilityState={{ selected, disabled: unavailable }} disabled={unavailable} onPress={() => onChange(date)} style={[styles.cell, { minHeight: calendarCellHeight }]}>
           <View style={[styles.day, date === today && styles.today, selected && styles.selected]}>
             <Text style={[styles.dayText, unavailable && styles.unavailable, selected && styles.selectedText]}>{day}</Text>
           </View>
         </Pressable>;
       })}
     </View>
+    </ScrollView>
   </View>;
 }
 const styles = StyleSheet.create({
   calendar: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E8E3', borderRadius: 20, padding: 14 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingLeft: 4, marginBottom: 8 },
+  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingLeft: 4, marginBottom: 8 },
   month: { color: '#162B22', fontSize: 16, fontWeight: '800', textTransform: 'capitalize', flexShrink: 1 },
   arrows: { flexDirection: 'row', gap: 4 }, arrow: { minWidth: 44, minHeight: 44, borderWidth: 1, borderColor: '#E0E8E3', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' }, cell: { width: '14.285714%', minHeight: 42, alignItems: 'center', justifyContent: 'center' },
-  weekday: { color: '#81938B', fontSize: 12, fontWeight: '700' }, day: { minWidth: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  weekday: { color: readableColors.secondary, fontSize: 13, fontWeight: '700' }, day: { minWidth: 32, minHeight: 32, paddingVertical: 4, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   today: { borderWidth: 1, borderColor: '#98BBA9' }, selected: { backgroundColor: '#087D56', borderColor: '#087D56' },
   dayText: { fontSize: 13, color: '#273D32' }, unavailable: { color: '#CCD6D0' }, selectedText: { color: '#FFFFFF', fontWeight: '800' },
 });

@@ -53,7 +53,7 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
             <Controller control={control} name="email" render={({ field: { value, onChange, onBlur, ref } }) => (
               <TextInput
                 ref={ref} value={value} onChangeText={(text) => { setMessage(null); onChange(text); }}
-                onBlur={onBlur} placeholder="tu@correo.cl" placeholderTextColor="#77847E"
+                onBlur={onBlur} placeholder="tu@correo.cl" placeholderTextColor="#52695C"
                 accessibilityLabel="Correo electrónico" autoCapitalize="none" autoCorrect={false}
                 keyboardType="email-address" autoComplete="email" textContentType="emailAddress"
                 returnKeyType="next" onSubmitEditing={() => passwordRef.current?.focus()}
@@ -67,7 +67,7 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
                 <TextInput
                   ref={(input) => { passwordRef.current = input; ref(input); }}
                   value={value} onChangeText={(text) => { setMessage(null); onChange(text); }} onBlur={onBlur}
-                  placeholder="Tu contraseña" placeholderTextColor="#77847E"
+                  placeholder="Tu contraseña" placeholderTextColor="#52695C"
                   accessibilityLabel="Contraseña" secureTextEntry={!showPassword}
                   autoCapitalize="none" autoCorrect={false} autoComplete="current-password"
                   textContentType="password" returnKeyType="go" onSubmitEditing={() => void submit()}

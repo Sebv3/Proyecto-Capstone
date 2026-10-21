@@ -18,13 +18,12 @@ function formatPrice(price: number): string {
 }
 
 export function WorkerHomeScreen({
-  verification, onRefresh, onPublish, onEdit, onCertifications, publishedServiceName, updatedServiceName, onDismissSuccess, onBooking, onAgenda, onEarnings,
+  verification, onRefresh, onPublish, onEdit, onCertifications, publishedServiceName, updatedServiceName, onDismissSuccess, onBooking, onAgenda,
 }: {
   verification: WorkerVerification; onRefresh: () => void; onPublish: () => void;
   onCertifications: () => void;
   onEdit: (serviceId: string) => void;
   onBooking: (bookingId: string) => void; onAgenda: () => void;
-  onEarnings: () => void;
   publishedServiceName?: string; updatedServiceName?: string; onDismissSuccess: () => void;
 }) {
   const { user, withAccessToken } = useAuth();
@@ -166,7 +165,7 @@ export function WorkerHomeScreen({
               <Ionicons name="construct-outline" size={25} color="#087A57" />
             </View>
             <View style={styles.serviceBody}>
-              <Text numberOfLines={1} style={styles.serviceName}>{service.nombre}</Text>
+              <Text style={styles.serviceName}>{service.nombre}</Text>
               <Text style={styles.serviceMeta}>
                 {service.modalidad === 'DOMICILIO' ? 'A domicilio' : 'En taller'} · {formatPrice(service.precio_base)}
               </Text>
@@ -199,17 +198,6 @@ export function WorkerHomeScreen({
             </View>}
           </View>)}
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>GANANCIAS</Text>
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Ver mis ganancias" onPress={onEarnings} style={styles.comingCard}>
-        <Ionicons name="bar-chart-outline" size={30} color="#82918B" />
-        <View>
-          <Text style={styles.infoTitle}>Estadísticas de trabajo</Text>
-          <Text style={styles.hint}>Ver ganancias simuladas y servicios completados</Text>
-        </View>
-      </Pressable>
-
       <View style={[styles.sectionHeader, styles.upcomingHeader]}>
         <Text accessibilityRole="header" style={styles.sectionLabel}>PRÓXIMAS CITAS</Text>
         <Pressable accessibilityRole="button" onPress={onAgenda} style={styles.serviceAction}><Text style={styles.link}>Ver todas</Text></Pressable>
@@ -240,14 +228,14 @@ const styles = StyleSheet.create({
   upcomingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   dateBadge: { minWidth: 52, borderRadius: 12, backgroundColor: '#DDF2E9', padding: 8, alignItems: 'center' },
   dateDay: { color: '#087A57', fontSize: 24, fontWeight: '900' },
-  dateMonth: { color: '#256047', fontSize: 11, fontWeight: '700' },
+  dateMonth: { color: '#256047', fontSize: 12, fontWeight: '700' },
   successCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, marginBottom: 14, backgroundColor: '#DDF2E9', borderRadius: 14 },
   dismiss: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
   disabledAction: { opacity: 0.5 },
   page: { flex: 1, backgroundColor: '#F5F7F6' },
   content: { padding: 16, paddingBottom: 42, width: '100%', maxWidth: 680, alignSelf: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  eyebrow: { color: '#66756F', fontSize: 13, fontWeight: '600' },
+  header: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+  eyebrow: { color: '#52695C', fontSize: 13, fontWeight: '600' },
   title: { color: '#14251F', fontSize: 23, fontWeight: '900', marginTop: 2 },
   summaryCard: { padding: 18, backgroundColor: '#087A57', borderRadius: 20 },
   summaryLabel: { color: '#DDF2E9', fontSize: 13, fontWeight: '700' },
@@ -256,22 +244,22 @@ const styles = StyleSheet.create({
   progressTrack: { height: 7, flexDirection: 'row', overflow: 'hidden', backgroundColor: '#4CA081', borderRadius: 5, marginTop: 16 },
   progressActive: { backgroundColor: '#FFFFFF', borderRadius: 5 },
   summaryFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 7 },
-  summaryFooterText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  summaryFooterText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   verificationCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, marginTop: 12, backgroundColor: '#FFF6DF', borderRadius: 14, borderWidth: 1, borderColor: '#F1D799' },
   verificationBody: { flex: 1 },
   verificationTitle: { color: '#6F4709', fontSize: 14, fontWeight: '800' },
-  hint: { color: '#66756F', fontSize: 12, lineHeight: 18, marginTop: 3 },
+  hint: { color: '#52695C', fontSize: 12, lineHeight: 18, marginTop: 3 },
   linkButton: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 10 },
   link: { color: '#256047', fontSize: 14, fontWeight: '700' },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  primaryAction: { flex: 1, minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: '#14251F' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  primaryAction: { flex: 1, minWidth: 150, minHeight: 72, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 12, borderRadius: 16, backgroundColor: '#14251F' },
   primaryActionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  primaryActionSoon: { color: '#AFC5BB', fontSize: 10, marginTop: 2 },
-  secondaryAction: { flex: 1, minHeight: 72, alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE6E1' },
+  primaryActionSoon: { color: '#AFC5BB', fontSize: 12, marginTop: 2 },
+  secondaryAction: { flex: 1, minWidth: 150, minHeight: 72, alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE6E1' },
   secondaryActionText: { color: '#14251F', fontSize: 13, fontWeight: '800', marginTop: 3 },
-  secondaryActionSoon: { color: '#82918B', fontSize: 10, marginTop: 1 },
+  secondaryActionSoon: { color: '#52695C', fontSize: 12, marginTop: 1 },
   sectionHeader: { marginTop: 26, marginBottom: 11 },
-  sectionLabel: { color: '#66756F', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  sectionLabel: { color: '#52695C', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
   infoCard: { padding: 18, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#DCE6E1' },
   infoTitle: { color: '#14251F', fontSize: 15, fontWeight: '800' },
   errorText: { color: '#A74444', fontSize: 13, marginBottom: 10 },
@@ -284,11 +272,10 @@ const styles = StyleSheet.create({
   serviceIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#DDF2E9' },
   serviceBody: { flex: 1 },
   serviceName: { color: '#14251F', fontSize: 14, fontWeight: '800' },
-  serviceMeta: { color: '#66756F', fontSize: 11, marginTop: 4 },
+  serviceMeta: { color: '#52695C', fontSize: 12, marginTop: 4 },
   status: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 10 },
   activeStatus: { backgroundColor: '#DDF2E9' },
   inactiveStatus: { backgroundColor: '#EDF1EE' },
-  activeText: { color: '#087A57', fontSize: 10, fontWeight: '800' },
-  inactiveText: { color: '#66756F', fontSize: 10, fontWeight: '800' },
-  comingCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#DCE6E1' },
+  activeText: { color: '#087A57', fontSize: 12, fontWeight: '800' },
+  inactiveText: { color: '#52695C', fontSize: 12, fontWeight: '800' },
 });
