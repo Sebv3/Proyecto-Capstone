@@ -82,6 +82,7 @@ export function EditableProfilePhoto() {
           </>}
           {pending && <Image source={{ uri: pending.uri }} accessibilityLabel="Vista previa de la nueva foto"
             style={{ width: 200, height: 200, borderRadius: 100, alignSelf: 'center' }} />}
+          {pending && <Text style={styles.hint}>JPEG, PNG o WebP · Hasta 5 MB y 20 megapíxeles · Sin animación.</Text>}
           {(pending || removing) && <Text style={styles.text}>{removing ? 'Se quitará tu foto y se mostrará la inicial de tu nombre.'
             : 'Esta foto será pública. No uses documentos de identidad ni imágenes con datos privados.'}</Text>}
           {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}

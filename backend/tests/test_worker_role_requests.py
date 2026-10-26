@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.supabase_auth import SupabaseAuthGateway, get_auth_gateway
+from tests.image_fixtures import image_bytes
 
 USER_ID = "11111111-2222-3333-4444-555555555555"
 REQUEST_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
@@ -33,9 +34,9 @@ ROLE_REQUEST = {
     "actualizado_en": "2026-09-29T12:00:00Z",
 }
 FILES = {
-    "carnet_frontal": ("frontal.jpg", b"\xff\xd8\xfffront", "image/jpeg"),
-    "carnet_reverso": ("reverso.jpg", b"\xff\xd8\xffback", "image/jpeg"),
-    "selfie": ("selfie.jpg", b"\xff\xd8\xffselfie", "image/jpeg"),
+    "carnet_frontal": ("frontal.jpg", image_bytes(), "image/jpeg"),
+    "carnet_reverso": ("reverso.jpg", image_bytes(), "image/jpeg"),
+    "selfie": ("selfie.jpg", image_bytes(), "image/jpeg"),
 }
 
 

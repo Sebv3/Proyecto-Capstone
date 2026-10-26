@@ -10,6 +10,7 @@ from app.schemas.worker_verification import (
     WorkerProfileAddress,
     WorkerProfileResponse,
 )
+from app.services.image_validation import validate_image
 
 router = APIRouter(prefix="/api/v1", tags=["Perfil y verificación trabajador"])
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -172,6 +173,7 @@ async def _validated_image(file: UploadFile, label: str) -> tuple[bytes, str, st
         raise HTTPException(
             status_code=422, detail=f"{label}: el archivo no coincide con su formato"
         )
+    await validate_image(data, mime, label)
     return data, mime, extension
 
 

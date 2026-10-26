@@ -81,7 +81,8 @@ try {
         'migrations/20261017220000_mercadopago_test_checkout.sql',
         'tests/mercadopago_rules.sql',
         'migrations/20261019120000_profile_avatars.sql',
-        'tests/profile_avatars_rules.sql'
+        'tests/profile_avatars_rules.sql',
+        'migrations/20261026120000_require_provider_test_payment.sql'
     )) { $migrationArgs += @('-f',"/fixtures/$file") }
     Invoke-TestDocker -DockerArgs $migrationArgs | Out-Null
     Invoke-TestDocker -DockerArgs @('exec',$reviewPg,'psql','-U','postgres','-v','ON_ERROR_STOP=1',

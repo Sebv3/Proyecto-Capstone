@@ -4,6 +4,7 @@ from uuid import UUID
 import httpx
 import pytest
 
+from tests.image_fixtures import image_bytes
 from tests.test_worker_role_requests import TOKEN_HEADERS, USER, USER_ID
 from tests.test_worker_role_requests import _authenticate as _authenticate_user
 from tests.test_worker_role_requests import make_client as make_client
@@ -11,7 +12,7 @@ from tests.test_worker_role_requests import make_client as make_client
 BASE = "https://test.supabase.co/storage/v1/object/public/profile-avatars"
 OLD_PATH = f"{USER_ID}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg"
 OLD = f"{BASE}/{OLD_PATH}"
-JPEG = ("foto.jpg", b"\xff\xd8\xffphoto", "image/jpeg")
+JPEG = ("foto.jpg", image_bytes(), "image/jpeg")
 
 
 def _authenticate(request, user=USER):
@@ -128,8 +129,8 @@ def test_inactive_account_cannot_upload(make_client):
 
 
 @pytest.mark.parametrize("photo", [
-    ("photo.png", b"\x89PNG\r\n\x1a\nimage", "image/png"),
-    ("photo.webp", b"RIFF1234WEBPimage", "image/webp"),
+    ("photo.png", image_bytes("PNG"), "image/png"),
+    ("photo.webp", image_bytes("WEBP"), "image/webp"),
 ])
 def test_other_supported_image_formats(make_client, photo):
     saved_url = None

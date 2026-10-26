@@ -41,7 +41,7 @@ export function avatarError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) return 'No recibimos confirmación. Recarga tu perfil antes de volver a intentar.';
     if (error.response.status === 401) return 'Tu sesión venció. Vuelve a iniciar sesión.';
-    if (error.response.status === 422) return 'Usa una imagen JPEG, PNG o WebP de hasta 5 MB.';
+    if (error.response.status === 422) return 'Usa una imagen válida JPEG, PNG o WebP de hasta 5 MB, 20 megapíxeles y 8192 píxeles por lado, sin animación.';
     if (error.response.status === 403) return 'No tienes permiso para actualizar la foto.';
     return 'No pudimos guardar la foto. Inténtalo nuevamente o revisa la configuración del almacenamiento.';
   }

@@ -113,6 +113,20 @@ export async function refreshSession(refreshToken: string): Promise<AuthSession>
   return parseSession(data);
 }
 
+export async function revokeSession(session: AuthSession): Promise<void> {
+  if (!api.defaults.baseURL) throw new Error('No se ha configurado la conexión con el servicio.');
+  let accessToken = session.access_token;
+  if (session.expires_at <= Date.now() + 30_000) {
+    const { data } = await api.post<Omit<AuthSession, 'expires_at'>>('/auth/refresh', {
+      refresh_token: session.refresh_token,
+    }, { timeout: 5000 });
+    accessToken = parseSession(data).access_token;
+  }
+  await api.post('/auth/logout', undefined, {
+    headers: { Authorization: `Bearer ${accessToken}` }, timeout: 5000,
+  });
+}
+
 export function loginErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) return 'No pudimos conectar con el servicio. Revisa tu conexión e inténtalo nuevamente.';

@@ -6,7 +6,7 @@ process.env.EXPO_PUBLIC_API_URL = 'http://localhost:8000/api/v1';
 let handler;
 axios.defaults.adapter = (config) => handler(config);
 const {
-  getCommunes, login, loginErrorMessage, refreshSession, register, registerErrorMessage,
+  getCommunes, login, loginErrorMessage, refreshSession, register, registerErrorMessage, revokeSession,
 } = await import('../src/api/auth.ts');
 const { registerSchema } = await import('../src/auth/registerSchema.ts');
 const {
@@ -19,11 +19,48 @@ const {
 } = await import('../src/api/workerRoleRequest.ts');
 const { clearStoredSession, readStoredSession, saveSession } = await import('../src/auth/sessionStorage.web.ts');
 const { requestWithSession } = await import('../src/auth/requestWithSession.ts');
+const { endSession } = await import('../src/auth/endSession.ts');
 const user = { id: 'user-1', nombre: 'Ana', email: 'ana@example.com', rol: 'CLIENTE', activo: true };
 const sessionResponse = {
   access_token: 'test-token', refresh_token: 'refresh-token', token_type: 'bearer', expires_in: 3600,
 };
 const response = (config, data) => ({ config, data, status: 200, statusText: 'OK', headers: {} });
+
+test('logout sends only the current bearer token with a bounded timeout', async () => {
+  handler = async (config) => {
+    assert.equal(config.url, '/auth/logout');
+    assert.equal(config.headers.Authorization, 'Bearer test-token');
+    assert.equal(config.data, undefined);
+    assert.equal(config.timeout, 5000);
+    return response(config, undefined);
+  };
+  await revokeSession({ ...sessionResponse, expires_at: Date.now() + 60_000 });
+});
+
+test('logout refreshes an expiring session only to revoke its same session family', async () => {
+  const calls = [];
+  handler = async (config) => {
+    calls.push(config.url);
+    if (config.url === '/auth/refresh') {
+      assert.deepEqual(JSON.parse(config.data), { refresh_token: 'refresh-token' });
+      return response(config, { ...sessionResponse, access_token: 'renewed-for-logout' });
+    }
+    assert.equal(config.headers.Authorization, 'Bearer renewed-for-logout');
+    return response(config, undefined);
+  };
+  await revokeSession({ ...sessionResponse, expires_at: 0 });
+  assert.deepEqual(calls, ['/auth/refresh', '/auth/logout']);
+});
+
+test('local logout always completes first and remote failures never restore it', async () => {
+  const calls = [];
+  await endSession(sessionResponse, async () => calls.push('local-clear'), async () => {
+    calls.push('remote-revoke'); throw new Error('offline');
+  });
+  assert.deepEqual(calls, ['local-clear', 'remote-revoke']);
+  await endSession(null, async () => calls.push('clear-without-session'), async () => assert.fail('No session to revoke'));
+  assert.equal(calls.at(-1), 'clear-without-session');
+});
 
 const registration = {
   nombre: ' Ana ', email: 'ana@example.com', rut: '12.345.678-5',

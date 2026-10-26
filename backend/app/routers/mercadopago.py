@@ -58,7 +58,7 @@ async def read_checkout(gateway, token, booking_id):
 
 @router.get("/pagos/configuracion")
 async def payment_configuration():
-    return {"modo": "MERCADO_PAGO_TEST" if enabled() else "SIMULADO"}
+    return {"modo": "MERCADO_PAGO_TEST" if enabled() else "DESHABILITADO"}
 
 
 @router.get("/solicitudes/{booking_id}/pago/mercadopago", response_model=Checkout | None)

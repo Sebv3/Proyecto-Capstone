@@ -22,6 +22,21 @@ from tests.test_bookings import BOOKING, CLIENT, HEADERS, WORKER
 
 PATH = f"/api/v1/solicitudes/{BOOKING['id']}/pago/mercadopago"
 WEBHOOK = "/api/v1/pagos/mercadopago/webhook"
+
+
+@pytest.mark.parametrize("enabled,mode", [
+    ("true", "MERCADO_PAGO_TEST"), ("false", "DESHABILITADO"),
+])
+def test_configuration_never_falls_back_to_internal_simulation(monkeypatch, enabled, mode):
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("MERCADO_PAGO_ENABLED", enabled)
+    with TestClient(app) as api:
+        response = api.get("/api/v1/pagos/configuracion")
+    assert response.status_code == 200
+    assert response.json() == {"modo": mode}
+
+
 CHECKOUT_ID = "88888888-8888-4888-8888-888888888888"
 CHECKOUT = {
     "id": CHECKOUT_ID,

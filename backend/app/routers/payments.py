@@ -4,9 +4,8 @@ from fastapi import APIRouter, HTTPException
 
 from app.core.security import AuthGateway, BearerToken
 from app.routers.bookings import CurrentUser, _parse, _role, _token
-from app.schemas.payment import PaymentResult, PaymentSummary, SimulatedPaymentRequest
+from app.schemas.payment import PaymentSummary, SimulatedPaymentRequest
 from app.schemas.user import UserRole
-from app.services.mercadopago import enabled
 
 router = APIRouter(prefix="/api/v1/solicitudes", tags=["Pagos simulados"])
 
@@ -51,17 +50,10 @@ async def payment_summary(
     return result
 
 
-@router.post("/{booking_id}/pago/simular", response_model=PaymentResult)
+@router.post("/{booking_id}/pago/simular", deprecated=True)
 async def simulate_payment(
     booking_id: UUID, body: SimulatedPaymentRequest,
     user: CurrentUser, credentials: BearerToken, gateway: AuthGateway,
-) -> PaymentResult:
+):
     _role(user, UserRole.CLIENTE)
-    if enabled():
-        raise HTTPException(409, "Completa el pago de prueba mediante Mercado Pago")
-    result = _parse(PaymentResult, await _payment_rpc(
-        gateway, _token(credentials), "simular_pago_solicitud", booking_id,
-    ))
-    if result.solicitud.id != booking_id or result.pago.cliente_id != user.id:
-        raise HTTPException(502, "Respuesta de pago inválida")
-    return result
+    raise HTTPException(409, "Completa el pago de prueba mediante Mercado Pago")

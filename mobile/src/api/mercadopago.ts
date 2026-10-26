@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export type PaymentMode = 'SIMULADO' | 'MERCADO_PAGO_TEST';
+export type PaymentMode = 'DESHABILITADO' | 'MERCADO_PAGO_TEST';
 export type MercadoPagoCheckout = {
   id: string; solicitud_id: string; estado: 'CREANDO' | 'LISTO' | 'PENDIENTE' | 'RECHAZADO' | 'APROBADO' | 'REVISION';
   checkout_url: string | null; expira_en: string;
@@ -8,7 +8,7 @@ export type MercadoPagoCheckout = {
 const api = axios.create({ baseURL: process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, ''), timeout: 45000 });
 export async function getPaymentMode(signal?: AbortSignal): Promise<PaymentMode> {
   const { data } = await api.get<{ modo: PaymentMode }>('/pagos/configuracion', { signal });
-  if (!['SIMULADO', 'MERCADO_PAGO_TEST'].includes(data.modo)) throw new Error('Configuración de pago inválida.');
+  if (!['DESHABILITADO', 'MERCADO_PAGO_TEST'].includes(data.modo)) throw new Error('Configuración de pago inválida.');
   return data.modo;
 }
 export async function getMercadoPagoCheckout(token: string, bookingId: string, signal?: AbortSignal): Promise<MercadoPagoCheckout | null> {

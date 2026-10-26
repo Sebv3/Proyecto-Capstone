@@ -7,6 +7,7 @@ from app.core.security import AuthGateway, BearerToken, get_current_user
 from app.schemas.user import User, UserRole
 from app.schemas.worker_certification import CertificationDocumentResponse, CertificationResponse
 from app.schemas.worker_verification import VerificationReviewRequest
+from app.services.image_validation import validate_image
 
 router = APIRouter(prefix="/api/v1", tags=["Certificaciones"])
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -130,6 +131,8 @@ async def submit_certification(
     signature, extension = FORMATS[mime]
     if not data.startswith(signature) or (mime == "image/webp" and data[8:12] != b"WEBP"):
         raise HTTPException(status_code=422, detail="El archivo no coincide con su formato")
+    if mime.startswith("image/"):
+        await validate_image(data, mime, "Imagen de certificación")
     path = f"{user.id}/{categoria_id}/{uuid4()}{extension}"
     uploaded = False
     try:

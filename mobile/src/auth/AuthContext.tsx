@@ -7,10 +7,12 @@ import {
   isUnauthorized,
   login,
   refreshSession,
+  revokeSession,
   User,
 } from '../api/auth';
 import { clearStoredSession, readStoredSession, saveSession } from './sessionStorage';
 import { requestWithSession } from './requestWithSession';
+import { endSession } from './endSession';
 
 type AuthState = {
   user: User | null;
@@ -104,11 +106,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   async function signOut() {
+    const current = sessionRef.current;
     authVersion.current += 1;
     sessionRef.current = null;
     setSession(null);
     setUser(null);
-    await persist(null);
+    await endSession(current, () => persist(null), revokeSession);
   }
 
   async function renewSession(): Promise<AuthSession> {
@@ -118,10 +121,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const version = authVersion.current;
     const pending = (async () => {
       const next = await refreshSession(current.refresh_token);
+      if (version !== authVersion.current) {
+        // A refresh finishing after logout must not leave a renewed session alive.
+        try { await revokeSession(next); } catch { /* Local logout already completed. */ }
+        throw new Error('La sesión cambió.');
+      }
       const refreshedUser = await getCurrentUser(next.access_token);
-      if (version !== authVersion.current) throw new Error('La sesión cambió.');
+      if (version !== authVersion.current) {
+        try { await revokeSession(next); } catch { /* Local logout already completed. */ }
+        throw new Error('La sesión cambió.');
+      }
       await persist(next);
-      if (version !== authVersion.current) throw new Error('La sesión cambió.');
+      if (version !== authVersion.current) {
+        try { await revokeSession(next); } catch { /* Local logout already completed. */ }
+        throw new Error('La sesión cambió.');
+      }
       sessionRef.current = next;
       setSession(next);
       setUser(refreshedUser);

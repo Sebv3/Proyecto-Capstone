@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.supabase_auth import SupabaseAuthGateway, get_auth_gateway
+from tests.image_fixtures import image_bytes
 
 USER_ID = "11111111-2222-3333-4444-555555555555"
 COMMUNE_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -38,7 +39,7 @@ VERIFICATION = {
     "creado_en": "2026-09-25T12:00:00Z",
     "actualizado_en": "2026-09-25T12:00:00Z",
 }
-JPEG = b"\xff\xd8\xff" + b"test-image-data"
+JPEG = image_bytes()
 FILES = {
     "carnet_frontal": ("front.jpg", JPEG, "image/jpeg"),
     "carnet_reverso": ("back.jpg", JPEG, "image/jpeg"),

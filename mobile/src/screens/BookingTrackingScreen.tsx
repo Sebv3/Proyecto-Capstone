@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { bookingOperationError, cancelBooking, changeBooking, completeBooking, getBooking, getConfirmationCode,
   type Booking, type BookingAction, type ConfirmationCode } from '../api/bookings';
 import { useAuth } from '../auth/AuthContext';
-import { getPaymentSummary, simulatePayment, paymentErrorMessage, type PaymentSummary } from '../api/payments';
+import { getPaymentSummary, paymentErrorMessage, type PaymentSummary } from '../api/payments';
 import { paymentUnavailableReason } from '../services/paymentAvailability';
 import { bookingStatusLabels, canCancelBooking, canConfirmBooking, isTerminalBooking, workerActions, type BookingRole } from '../services/bookingTracking';
 import { BookingProgressCard, trackingBadges } from '../components/BookingProgressCard';
@@ -21,7 +21,7 @@ import { formatBookingDate } from '../services/bookingForm';
 import { formatCatalogPrice } from '../services/catalogFilters';
 import { bookingStyles as styles } from '../components/bookingStyles';
 
-type Action = BookingAction | 'cancelar' | 'completar' | 'codigo-confirmacion' | 'simular-pago';
+type Action = BookingAction | 'cancelar' | 'completar' | 'codigo-confirmacion';
 export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: string; role: BookingRole; onBack: () => void }) {
   const { width, fontScale } = useWindowDimensions();
   const { stacked } = textLayout(width, fontScale);
@@ -93,21 +93,11 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
   function select(action: Action) { setPending(action); setError(''); setSuccess(''); }
   async function perform() {
     if (!booking || !pending || busyRef.current || loading) return;
-    if (pending === 'simular-pago') {
-      const unavailable = paymentUnavailableReason(booking);
-      if (unavailable) { setError(unavailable); setPending(null); setNow(Date.now()); return; }
-    }
     if (pending === 'cancelar' && (reason.trim().length < 3 || reason.trim().length > 500)) { setError('Indica un motivo de cancelación entre 3 y 500 caracteres.'); return; }
     if (pending === 'completar' && !/^\d{6}$/.test(code.trim())) { setError('Ingresa el código de seis dígitos entregado por el cliente.'); return; }
     busyRef.current = true; setBusy(true); setError(''); setSuccess('');
     try {
-      if (pending === 'simular-pago') {
-        const result = await request.current((token) => simulatePayment(token, bookingId));
-        setBooking(result.solicitud);
-        setPayment({ ...result.pago, pago: result.pago });
-        setPaymentError('');
-        setSuccess('Pago simulado aprobado. No se ha cobrado dinero real.');
-      } else if (pending === 'codigo-confirmacion') {
+      if (pending === 'codigo-confirmacion') {
         setConfirmation(await request.current((token) => getConfirmationCode(token, bookingId)));
         setSuccess('Código generado. Entrégalo al trabajador solo cuando el servicio esté terminado y estés conforme.');
       } else {
@@ -125,7 +115,7 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
         setSuccess('Solicitud actualizada: ' + bookingStatusLabels[next.estado]);
       }
       setPending(null);
-    } catch (value) { setError(pending === 'simular-pago' ? paymentErrorMessage(value) : bookingOperationError(value)); }
+    } catch (value) { setError(bookingOperationError(value)); }
     finally { busyRef.current = false; setBusy(false); }
   }
   const terminal = booking && isTerminalBooking(booking);
@@ -133,7 +123,7 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
   const initials = role === 'CLIENTE' && !counterpart ? '?' : person.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
   const paymentBlocked = booking ? paymentUnavailableReason(booking, now) : null;
   const labels: Record<Action, string> = { aceptar: 'Aceptar solicitud', rechazar: 'Rechazar solicitud', 'en-camino': 'Estoy en camino',
-    iniciar: 'Iniciar servicio', listo: 'Listo para retirar', cancelar: 'Cancelar solicitud', completar: 'Finalizar servicio', 'codigo-confirmacion': 'Generar código de finalización', 'simular-pago': 'Simular pago' };
+    iniciar: 'Iniciar servicio', listo: 'Listo para retirar', cancelar: 'Cancelar solicitud', completar: 'Finalizar servicio', 'codigo-confirmacion': 'Generar código de finalización' };
   return <SafeAreaView style={[styles.page, tracking.page]}>
     <View style={[styles.header, styles.width]}><Pressable accessibilityRole="button" accessibilityLabel="Volver a solicitudes" disabled={busy} onPress={onBack} style={tracking.back}>
       <Ionicons name="arrow-back" size={22} color="#162B22" /></Pressable><Text accessibilityRole="header" style={tracking.title}>Solicitud #SM-{bookingId.slice(0, 8).toUpperCase()}</Text>
@@ -176,10 +166,10 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
           {paymentMode === 'MERCADO_PAGO_TEST' && !['PENDIENTE', 'RECHAZADA'].includes(booking.estado) && <MercadoPagoCard bookingId={bookingId}
             canPay={role === 'CLIENTE' && booking.estado === 'ACEPTADA' && !paymentBlocked && !!payment && !payment.pago}
             approved={!!payment?.pago} onConfirmed={() => setRetry((value) => value + 1)} />}
+          {paymentMode === 'DESHABILITADO' && booking.estado === 'ACEPTADA' && !payment?.pago && <Text style={styles.hint}>El pago de prueba no está disponible. Inténtalo más tarde; la solicitud no se marcará como pagada.</Text>}
           {!!success && <Text accessibilityLiveRegion="polite" style={[styles.text, styles.green]}>{success}</Text>}
           {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
           {!pending && <>
-            {paymentMode === 'SIMULADO' && role === 'CLIENTE' && booking.estado === 'ACEPTADA' && !paymentBlocked && payment && !payment.pago && <Pressable accessibilityRole="button" disabled={busy} onPress={() => select('simular-pago')} style={styles.button}><Text style={styles.buttonText}>Simular pago</Text></Pressable>}
             {workerActions(booking, role).map(({ action, label }) => <Pressable key={action} accessibilityRole="button" disabled={busy} onPress={() => select(action)}
               style={[styles.button, action === 'rechazar' && tracking.danger]}><Text style={styles.buttonText}>{label}</Text></Pressable>)}
             {canConfirmBooking(booking) && (role === 'CLIENTE' ? <View style={styles.card}><Text style={styles.section}>Autorizar finalización</Text><Text style={styles.text}>Genera el código y entrégalo al trabajador solo cuando el servicio esté terminado y estés conforme.</Text><Pressable accessibilityRole="button" disabled={busy} onPress={() => select('codigo-confirmacion')} style={styles.button}><Text style={styles.buttonText}>Generar código de finalización</Text></Pressable></View>
@@ -193,10 +183,9 @@ export function BookingTrackingScreen({ bookingId, role, onBack }: { bookingId: 
           {pending && <View style={styles.card}>
             <Text style={styles.section}>{labels[pending]}</Text>
             <Text style={styles.text}>{pending === 'aceptar' ? 'Reservarás este horario. Las solicitudes pendientes superpuestas podrán rechazarse automáticamente.'
-              : pending === 'simular-pago' ? `Confirmarás un pago simulado de ${formatCatalogPrice(payment?.monto_total ?? 0)}. No se cobrará dinero real y la solicitud quedará pagada.`
               : pending === 'rechazar' ? 'La solicitud terminará como rechazada.' : pending === 'completar' ? 'Confirma solo cuando el servicio esté terminado.' : 'Confirma esta acción para actualizar la solicitud.'}</Text>
             {pending === 'cancelar' && <TextInput accessibilityLabel="Motivo de cancelación" editable={!busy} value={reason} onChangeText={setReason} maxLength={500} multiline placeholder="Indica el motivo" style={styles.input} />}
-            <Pressable accessibilityRole="button" disabled={busy || (pending === 'simular-pago' && !!paymentBlocked)} style={[styles.button, (busy || (pending === 'simular-pago' && !!paymentBlocked)) && styles.disabled]} onPress={() => void perform()}>
+            <Pressable accessibilityRole="button" disabled={busy} style={[styles.button, busy && styles.disabled]} onPress={() => void perform()}>
               {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Confirmar</Text>}
             </Pressable>
             <Pressable accessibilityRole="button" disabled={busy} style={styles.action} onPress={() => { setPending(null); setError(''); }}><Text style={styles.link}>Volver sin cambios</Text></Pressable>

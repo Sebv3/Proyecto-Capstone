@@ -13,6 +13,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -130,6 +131,39 @@ def action(api, booking, name, user=WORKER, body=None):
                     headers=headers(user), json=body)
 
 
+def provider_payment(api, booking):
+    """Prepare a provider-confirmed receipt only in the disposable test database."""
+    service_headers = {"Authorization": "Bearer " + token(ADMIN, "service_role")}
+    with httpx.Client(base_url=URL, timeout=10) as direct:
+        opened = direct.post("/rpc/iniciar_checkout_mercadopago", headers=headers(CLIENT),
+                             json={"p_solicitud_id": booking["id"]})
+        if opened.status_code != 200:
+            return opened
+        checkout = opened.json()["checkout"]
+        saved = direct.post("/rpc/guardar_preferencia_mercadopago", headers=service_headers, json={
+            "p_checkout_id": checkout["id"], "p_preferencia_id": "test-" + booking["id"],
+            "p_checkout_url": "https://www.mercadopago.cl/checkout/v1/redirect?pref_id=test",
+            "p_collector_id": "123",
+        })
+        if saved.status_code != 200:
+            return saved
+        approved = direct.post("/rpc/procesar_pago_mercadopago", headers=service_headers, json={
+            "p_checkout_id": checkout["id"],
+            "p_pago_id": str(UUID(booking["id"]).int % 10**25), "p_estado": "approved",
+            "p_monto": checkout["monto_total"], "p_moneda": "CLP", "p_collector_id": "123",
+            "p_live_mode": False, "p_aprobado_en": datetime.now(UTC).isoformat(),
+            "p_actualizado_en": datetime.now(UTC).isoformat(),
+        })
+        if approved.status_code != 200:
+            return approved
+        if approved.json()["estado"] != "APROBADO":
+            return httpx.Response(409, json=approved.json())
+    summary = api.get(f"/api/v1/solicitudes/{booking['id']}/pago", headers=headers(CLIENT))
+    current = api.get(f"/api/v1/solicitudes/{booking['id']}", headers=headers(CLIENT))
+    assert summary.status_code == current.status_code == 200
+    return httpx.Response(200, json={"pago": summary.json()["pago"], "solicitud": current.json()})
+
+
 @pytest.mark.parametrize("service,steps", [
     (HOME, ["en-camino", "iniciar"]), (SHOP, ["iniciar", "listo"]),
 ])
@@ -149,8 +183,7 @@ def test_complete_lifecycle_uses_real_rpc_and_code(integration, service, steps):
     )
     assert action(api, booking, "aceptar").status_code == 200
     assert action(api, booking, "iniciar").status_code == 409
-    paid = api.post(f"/api/v1/solicitudes/{booking['id']}/pago/simular",
-                    headers=headers(CLIENT), json={})
+    paid = provider_payment(api, booking)
     assert paid.status_code == 200, paid.text
     assert paid.json()["pago"]["monto_total"] == (23000 if service == HOME else 34500)
     for step in steps:
@@ -291,7 +324,7 @@ def test_worker_cannot_manage_foreign_availability(integration):
     assert api.delete(f"{path}/{block['id']}", headers=headers(WORKER)).status_code == 200
 
 
-def test_simulated_payment_permissions_idempotency_and_rls(integration):
+def test_simulation_bypass_is_closed_and_provider_receipts_keep_rls(integration):
     api = integration
     start, _ = schedule(api)
     booking = create(api, start)
@@ -300,16 +333,19 @@ def test_simulated_payment_permissions_idempotency_and_rls(integration):
     assert action(api, booking, "aceptar").status_code == 200
     quote = api.get(path, headers=headers(CLIENT))
     assert quote.status_code == 200 and quote.json()["monto_total"] == 23000
-    for user in (WORKER, OTHER_CLIENT):
-        assert api.post(path + "/simular", headers=headers(user), json={}).status_code == 403
+    assert api.post(path + "/simular", headers=headers(WORKER), json={}).status_code == 403
+    assert api.post(path + "/simular", headers=headers(OTHER_CLIENT), json={}).status_code == 409
     assert api.get(path, headers=headers(OTHER_CLIENT)).status_code == 404
-    # Concurrent retries must produce one receipt and one committed payment.
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(lambda _: api.post(
-            path + "/simular", headers=headers(CLIENT), json={},
-        ), range(2)))
+    # Even before a checkout exists, a direct authenticated RPC cannot fake payment.
+    with httpx.Client(base_url=URL) as direct:
+        for name in ("simular_pago_solicitud", "simular_pago_solicitud_sin_checkout"):
+            assert direct.post("/rpc/" + name, headers=headers(CLIENT),
+                               json={"p_solicitud_id": booking["id"]}).status_code == 403
+        assert direct.get("/pagos", headers=headers(CLIENT)).json() == []
+    results = [provider_payment(api, booking)]
+    # Repeated authenticated API requests must remain blocked after approval too.
+    assert api.post(path + "/simular", headers=headers(CLIENT), json={}).status_code == 409
     assert all(result.status_code == 200 for result in results)
-    assert results[0].json()["pago"]["id"] == results[1].json()["pago"]["id"]
     cancelled = action(api, booking, "cancelar", CLIENT, {"motivo": "Cambio de planes"})
     assert cancelled.status_code == 409
     with httpx.Client(base_url=URL) as direct:
@@ -325,9 +361,8 @@ def test_concurrent_cancellation_and_payment_are_mutually_exclusive(integration)
     start, _ = schedule(api)
     booking = create(api, start)
     assert action(api, booking, "aceptar").status_code == 200
-    path = f"/api/v1/solicitudes/{booking['id']}/pago/simular"
     with ThreadPoolExecutor(max_workers=2) as pool:
-        payment = pool.submit(api.post, path, headers=headers(CLIENT), json={})
+        payment = pool.submit(provider_payment, api, booking)
         cancellation = pool.submit(action, api, booking, "cancelar", CLIENT,
                                    {"motivo": "Cambio de planes"})
         results = [payment.result(), cancellation.result()]
@@ -402,8 +437,7 @@ def test_completed_review_concurrent_retries_and_public_privacy(integration):
     assert api.get(path, headers=headers(CLIENT)).json() is None
     assert api.post(path, headers=headers(CLIENT), json={"puntuacion": 5}).status_code == 409
     assert action(api, booking, "aceptar").status_code == 200
-    assert api.post(f"/api/v1/solicitudes/{booking['id']}/pago/simular",
-                    headers=headers(CLIENT), json={}).status_code == 200
+    assert provider_payment(api, booking).status_code == 200
     for step in ("en-camino", "iniciar"):
         assert action(api, booking, step).status_code == 200
     code = action(api, booking, "codigo-confirmacion", CLIENT).json()["codigo"]

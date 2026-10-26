@@ -15,6 +15,13 @@ test('configuration is public and contains only the payment mode', async () => {
   };
   assert.equal(await api.getPaymentMode(), 'MERCADO_PAGO_TEST');
 });
+
+test('disabled Mercado Pago never enables an internal simulated payment', async () => {
+  handler = async (config) => response(config, { modo: 'DESHABILITADO' });
+  assert.equal(await api.getPaymentMode(), 'DESHABILITADO');
+  handler = async (config) => response(config, { modo: 'SIMULADO' });
+  await assert.rejects(api.getPaymentMode(), /inválida/);
+});
 test('creating checkout sends only session and booking ID, never amount or credentials', async () => {
   handler = async (config) => {
     assert.equal(config.method, 'post');

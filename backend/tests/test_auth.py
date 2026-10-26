@@ -366,3 +366,41 @@ def test_failed_password_change_closes_recovery_session(make_client) -> None:
     })
     assert result.status_code == 400
     assert calls[-1] == "/auth/v1/logout"
+
+
+@pytest.mark.parametrize("upstream_status", [200, 204])
+def test_logout_revokes_only_the_presented_session_without_requiring_active_profile(
+    make_client, upstream_status,
+):
+    def handler(request):
+        assert request.method == "POST"
+        assert request.url.path == "/auth/v1/logout"
+        assert dict(request.url.params) == {"scope": "local"}
+        assert request.headers["Authorization"] == "Bearer current-session"
+        assert request.content == b""
+        return httpx.Response(upstream_status)
+
+    result = make_client(handler).post("/api/v1/auth/logout", headers={
+        "Authorization": "Bearer current-session",
+    })
+    assert result.status_code == 204 and result.content == b""
+
+
+def test_logout_requires_a_bearer_token(make_client):
+    result = make_client(lambda request: pytest.fail("Missing token reached Supabase")).post(
+        "/api/v1/auth/logout",
+    )
+    assert result.status_code == 401
+
+
+@pytest.mark.parametrize("upstream_status,expected", [
+    (401, 401), (403, 401), (429, 429), (500, 502),
+])
+def test_logout_errors_are_safe_and_do_not_claim_remote_success(
+    make_client, upstream_status, expected,
+):
+    result = make_client(lambda request: httpx.Response(
+        upstream_status, json={"message": "private-secret"},
+    )).post("/api/v1/auth/logout", headers={"Authorization": "Bearer token"})
+    assert result.status_code == expected
+    assert "private-secret" not in result.text

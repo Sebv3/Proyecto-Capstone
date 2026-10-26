@@ -2,9 +2,9 @@ import os
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
-from app.core.security import AuthGateway, get_current_user
+from app.core.security import AuthGateway, BearerToken, get_current_user
 from app.schemas.auth import (
     LoginRequest,
     MeResponse,
@@ -133,6 +133,19 @@ async def refresh(body: RefreshRequest, gateway: AuthGateway) -> SessionResponse
 @router.get("/me", response_model=MeResponse)
 async def me(current_user: Annotated[User, Depends(get_current_user)]) -> MeResponse:
     return MeResponse(user=current_user)
+
+
+@router.post("/logout", status_code=204)
+async def logout(credentials: BearerToken, gateway: AuthGateway) -> Response:
+    # Do not require an active application profile: inactive users can sign out too.
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(401, "Se requiere un token Bearer")
+    response = await gateway.request(
+        "POST", "/auth/v1/logout", params={"scope": "local"},
+        access_token=credentials.credentials,
+    )
+    _auth_error(response.status_code, "No se pudo cerrar la sesión", invalid_status=401)
+    return Response(status_code=204)
 
 
 @router.post("/password-recovery")

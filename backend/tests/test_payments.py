@@ -1,5 +1,3 @@
-import json
-
 import httpx
 import pytest
 from pydantic import ValidationError
@@ -34,17 +32,15 @@ def test_commission_rounds_half_up_in_integer_clp(base, fee):
                        moneda="CLP", simulado=True)
 
 
-def test_payment_sends_only_booking_id_and_authenticated_token(make_client):
+@pytest.mark.parametrize("enabled", ["true", "false"])
+def test_simulated_payment_is_disabled_even_without_mp(make_client, monkeypatch, enabled):
+    monkeypatch.setenv("MERCADO_PAGO_ENABLED", enabled)
     def handler(request):
-        assert request.url.path == "/rest/v1/rpc/simular_pago_solicitud"
-        assert request.headers["Authorization"] == HEADERS["Authorization"]
-        assert json.loads(request.content) == {"p_solicitud_id": BOOKING["id"]}
-        return httpx.Response(200, json=RESULT)
+        pytest.fail("A user must not reach the simulated payment RPC")
 
     result = make_client(handler).post(PATH + "/simular", headers=HEADERS, json={})
-    assert result.status_code == 200
-    assert result.json()["solicitud"]["estado"] == "PAGADA"
-    assert result.json()["pago"]["simulado"] is True
+    assert result.status_code == 409
+    assert "Mercado Pago" in result.json()["detail"]
 
 
 @pytest.mark.parametrize("field,value", [
@@ -91,7 +87,7 @@ def test_participant_can_read_summary(make_client, user):
 def test_payment_errors_hide_database_details(make_client, code, status):
     result = make_client(lambda request: httpx.Response(
         400, json={"code": code, "message": "private database details"},
-    )).post(PATH + "/simular", headers=HEADERS, json={})
+    )).get(PATH, headers=HEADERS)
     assert result.status_code == status
     assert "private" not in result.text
 
@@ -102,8 +98,10 @@ def test_payment_errors_hide_database_details(make_client, code, status):
 ])
 def test_inconsistent_rpc_results_are_rejected(make_client, changes):
     result = make_client(lambda request: httpx.Response(
-        200, json={**RESULT, "pago": {**PAYMENT, **changes}},
-    )).post(PATH + "/simular", headers=HEADERS, json={})
+        200, json={**{key: PAYMENT[key] for key in (
+            "tarifa_base", "comision", "monto_total", "moneda", "simulado",
+        )}, "pago": {**PAYMENT, **changes}},
+    )).get(PATH, headers=HEADERS)
     assert result.status_code == 502
 
 
