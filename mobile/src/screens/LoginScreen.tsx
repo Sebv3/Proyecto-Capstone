@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { loginErrorMessage } from '../api/auth';
 import { useAuth } from '../auth/AuthContext';
 import { blurFocusedElementOnWeb } from '../navigation/webFocus';
+import { ServiMatchLogo } from '../components/ServiMatchLogo';
 
 const schema = z.object({
   email: z.string().trim().email('Ingresa un correo válido.'),
@@ -42,8 +43,7 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.brand}>
-            <Text style={styles.eyebrow}>SERVICIOS PARA EL HOGAR</Text>
-            <Text style={styles.logo}>ServiMatch</Text>
+            <ServiMatchLogo />
             <Text style={styles.description}>Encuentra ayuda de confianza, cerca de ti.</Text>
           </View>
           <View style={styles.card}>
@@ -112,10 +112,8 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
 const styles = StyleSheet.create({
   flex: { flex: 1 }, page: { flex: 1, backgroundColor: '#F5F7F6' },
   content: { flexGrow: 1, justifyContent: 'center', padding: 24, width: '100%', maxWidth: 520, alignSelf: 'center' },
-  brand: { marginBottom: 32 },
-  eyebrow: { color: '#32745C', fontSize: 12, fontWeight: '700', letterSpacing: 1.6, marginBottom: 10 },
-  logo: { color: '#14251F', fontSize: 40, fontWeight: '800', letterSpacing: -1.5 },
-  description: { color: '#52615C', fontSize: 16, lineHeight: 24, marginTop: 10 },
+  brand: { marginBottom: 28, alignItems: 'center' },
+  description: { color: '#52615C', fontSize: 15, lineHeight: 22, marginTop: 10, textAlign: 'center' },
   card: { padding: 22, borderRadius: 20, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DCE6E1' },
   title: { color: '#14251F', fontSize: 23, fontWeight: '700' },
   subtitle: { color: '#52615C', fontSize: 15, lineHeight: 22, marginTop: 8, marginBottom: 10 },
