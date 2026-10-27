@@ -1,0 +1,38 @@
+name: servimatch-performance
+services:
+  perf-api:
+    build:
+      context: ..
+    command: uvicorn performance.fixture_app:app --host 0.0.0.0 --port 8080 --no-access-log
+    environment:
+      PERF_UPSTREAM_DELAY_MS: ${PERF_UPSTREAM_DELAY_MS:-10}
+    volumes:
+      - ../app:/app/app:ro
+      - .:/app/performance:ro
+    networks: [isolated]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8080/__performance')"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    cpus: 1.0
+    mem_limit: 512m
+  k6:
+    image: grafana/k6:1.0.0
+    profiles: [tools]
+    working_dir: /scripts
+    volumes:
+      - ./load.js:/scripts/load.js:ro
+      - ./results:/results
+    environment:
+      BASE_URL: http://perf-api:8080/api/v1
+      PROFILE: ${PERF_PROFILE:-smoke}
+      OUTPUT_PREFIX: /results/${PERF_PROFILE:-smoke}
+    networks: [isolated]
+    depends_on:
+      perf-api:
+        condition: service_healthy
+    command: [run, --quiet, load.js]
+networks:
+  isolated:
+    internal: true

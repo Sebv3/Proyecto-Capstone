@@ -1,0 +1,6 @@
+results/*
+!results/.gitkeep
+__pycache__/
+RESULTS.md
+README.md
+evidence/

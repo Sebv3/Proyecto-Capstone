@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -21,6 +22,10 @@ import { WorkerProfileSection } from './WorkerProfileSection';
 import { WorkerRoleDocumentsScreen } from './WorkerRoleDocumentsScreen';
 import { showWorkerRoleRequest } from '../services/workerRoleRequest';
 import { EditableProfilePhoto, ProfileAvatar } from '../components/ProfilePhoto';
+import { ProfileMenuItem } from '../components/ProfileMenu';
+import { ProfileReviews } from '../components/ProfileReviews';
+import { getWorkerProfile, getWorkerVerification, type WorkerProfile, type WorkerVerification } from '../api/workerVerification';
+import { getWorkerReviews, type WorkerReviews } from '../api/reviews';
 
 const profileSchema = z.object({
   nombre: z.string().trim().min(2, 'Ingresa al menos dos caracteres.').max(120),
@@ -66,14 +71,21 @@ function CommunePicker({
 }
 
 export function ProfileScreen({
-  onWorkerProfileCreated, onBack,
-}: { onWorkerProfileCreated?: () => void; onBack?: () => void }) {
+  onWorkerProfileCreated, onBack, onRequests, onPublish, onCertifications, onEarnings,
+}: { onWorkerProfileCreated?: () => void; onBack?: () => void; onRequests?: () => void;
+  onPublish?: () => void; onCertifications?: () => void; onEarnings?: () => void }) {
   const { user, withAccessToken, refreshUser, updateUser, signOut } = useAuth();
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
+  const [panel, setPanel] = useState<'payments' | 'reviews' | 'help' | null>(null);
+  const [workerProfile, setWorkerProfile] = useState<WorkerProfile | null>(null);
+  const [workerVerification, setWorkerVerification] = useState<WorkerVerification | null>(null);
+  const [workerReviews, setWorkerReviews] = useState<WorkerReviews | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -91,6 +103,15 @@ export function ProfileScreen({
     resolver: zodResolver(profileSchema),
     defaultValues: { nombre: '', telefono: '', direccion: '', comuna_id: '' },
   });
+
+  useEffect(() => {
+    if (user?.rol !== 'TRABAJADOR') return;
+    let active = true;
+    void withAccessToken(getWorkerProfile).then((value) => { if (active) setWorkerProfile(value); }).catch(() => {});
+    void withAccessToken(getWorkerVerification).then((value) => { if (active) setWorkerVerification(value); }).catch(() => {});
+    void getWorkerReviews(user.id).then((value) => { if (active) setWorkerReviews(value); }).catch(() => {});
+    return () => { active = false; };
+  }, [user?.id, user?.rol, reloadKey]);
 
   useEffect(() => {
     if (user?.rol !== 'CLIENTE') return;
@@ -205,23 +226,53 @@ export function ProfileScreen({
   return <SafeAreaView style={styles.page}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.brand}>ServiMatch</Text>
         {onBack && <Pressable accessibilityRole="button" onPress={onBack} style={styles.textButton}>
           <Text style={styles.link}>Volver al inicio</Text>
         </Pressable>}
-        <Text accessibilityRole="header" style={styles.title}>Mi perfil</Text>
-        <Text style={styles.subtitle}>Tus datos personales y de contacto en un solo lugar.</Text>
+        <Text accessibilityRole="header" style={styles.title}>{user.rol === 'TRABAJADOR' ? 'Mi perfil profesional' : 'Mi perfil'}</Text>
 
+        <View style={styles.identityCard}>
         <View style={styles.hero}>
           <ProfileAvatar url={user.avatar_url} name={user.nombre} />
           <View style={styles.flex}>
             <Text style={styles.heroName}>{profile?.nombre ?? user.nombre}</Text>
-            <Text style={styles.heroEmail}>{user.email}</Text>
-            <EditableProfilePhoto key={user.id} />
+            <Text style={styles.heroEmail}>{user.rol === 'TRABAJADOR' ? workerProfile?.comuna?.nombre ?? user.email
+              : `${user.email}${profile?.comuna ? ' · ' + profile.comuna.nombre : ''}`}</Text>
+            <View style={styles.badgeRow}>
+              {user.rol === 'TRABAJADOR' ? workerVerification?.estado === 'APROBADA'
+                ? <View style={[styles.badge, styles.verifiedBadge]}><Ionicons name="shield-checkmark-outline" size={14} color="#086F4D" /><Text style={styles.badgeText}>Identidad verificada</Text></View>
+                : <Text style={styles.heroEmail}>Identidad {workerVerification ? workerVerification.estado.toLowerCase() : 'sin confirmar'}</Text>
+                : <Text style={styles.badge}>Cliente</Text>}
+            </View>
           </View>
         </View>
+        {user.rol === 'TRABAJADOR' && <Pressable accessibilityRole="button" accessibilityLabel="Ver reseñas recibidas" onPress={() => setPanel('reviews')} style={styles.rating}>
+          <Ionicons name="star" size={16} color="#087D56" /><Text style={styles.heroEmail}>{workerReviews
+            ? workerReviews.cantidad ? `${workerReviews.promedio?.toFixed(1)} (${workerReviews.cantidad} reseñas)` : 'Sin reseñas todavía'
+            : 'Ver reseñas recibidas'}</Text>
+        </Pressable>}
+        </View>
 
-        {user.rol === 'CLIENTE' && <View style={styles.card}>
+        <View style={styles.menu}>
+          {user.rol === 'TRABAJADOR' ? <>
+            {onPublish && <ProfileMenuItem icon="add-outline" title="Publicar servicio" subtitle="Ofrece un nuevo servicio" onPress={onPublish} />}
+            {onCertifications && <ProfileMenuItem icon="ribbon-outline" title="Certificaciones" subtitle="Cursos y documentos profesionales" onPress={onCertifications} />}
+            {onEarnings && <ProfileMenuItem icon="wallet-outline" title="Ganancias" subtitle="Ingresos y servicios completados" onPress={onEarnings} />}
+            <ProfileMenuItem icon="document-text-outline" title="Datos y verificación" subtitle="Ubicación e identidad del trabajador" expanded={detailsOpen} onPress={() => setDetailsOpen((value) => !value)} />
+          </> : <>
+            {onRequests && <ProfileMenuItem icon="list-outline" title="Solicitudes" subtitle="Servicios contratados e historial" onPress={onRequests} />}
+            <ProfileMenuItem icon="card-outline" title="Métodos de pago" subtitle="Pagos a través de Mercado Pago" onPress={() => setPanel('payments')} />
+            <ProfileMenuItem icon="location-outline" title="Direcciones" subtitle={profile ? `${profile.direccion} · ${profile.comuna.nombre}` : 'Completa tu dirección de contacto'} expanded={detailsOpen} onPress={() => setDetailsOpen((value) => !value)} />
+            <ProfileMenuItem icon="star-outline" title="Mis reseñas" subtitle="Calificaciones de tus servicios completados" onPress={() => setPanel('reviews')} />
+          </>}
+          <ProfileMenuItem icon="chatbubble-outline" title="Ayuda y soporte" subtitle="Información sobre pagos y servicios" onPress={() => setPanel('help')} />
+          {showWorkerRoleRequest(user.rol, roleRequest) && <ProfileMenuItem icon="construct-outline" title="Solicitar rol de trabajador" subtitle="Verificación de identidad y perfil profesional" amber expanded={roleOpen} onPress={() => setRoleOpen((value) => !value)} />}
+          <ProfileMenuItem icon="person-circle-outline" title="Datos de mi cuenta" subtitle="Foto y datos personales" expanded={detailsOpen} onPress={() => setDetailsOpen((value) => !value)} />
+        </View>
+
+        {detailsOpen && <View style={{ marginBottom: 18 }}><EditableProfilePhoto key={user.id} /></View>}
+
+        {user.rol === 'CLIENTE' && (detailsOpen || showForm) && <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <View style={styles.flex}>
               <Text style={styles.sectionTitle}>{missing ? 'Completa tu perfil' : 'Datos de cliente'}</Text>
@@ -291,9 +342,9 @@ export function ProfileScreen({
           </View>}
         </View>}
 
-        {user.rol === 'TRABAJADOR' && <WorkerProfileSection onProfileCreated={onWorkerProfileCreated} />}
+        {user.rol === 'TRABAJADOR' && detailsOpen && <WorkerProfileSection onProfileCreated={() => { setReloadKey((n) => n + 1); onWorkerProfileCreated?.(); }} />}
 
-        {showWorkerRoleRequest(user.rol, roleRequest) && <View style={styles.roleRequestCard}>
+        {roleOpen && showWorkerRoleRequest(user.rol, roleRequest) && <View style={styles.roleRequestCard}>
           <Text style={styles.sectionTitle}>¿Quieres ofrecer tus servicios?</Text>
           <Text style={styles.sectionHint}>
             Solicita convertir tu cuenta en un perfil de trabajador. Mantendrás tu acceso de cliente mientras revisamos la solicitud.
@@ -352,20 +403,43 @@ export function ProfileScreen({
             </View>}
         </View>}
       </ScrollView>
+      <Modal visible={panel !== null} animationType="slide" onRequestClose={() => setPanel(null)}>
+        <SafeAreaView style={styles.page}>
+          <ScrollView contentContainerStyle={styles.content}>
+            <Pressable accessibilityRole="button" onPress={() => setPanel(null)} style={styles.textButton}><Text style={styles.link}>Volver al perfil</Text></Pressable>
+            {panel === 'reviews' ? <ProfileReviews /> : <View style={styles.card}>
+              <Text accessibilityRole="header" style={styles.sectionTitle}>{panel === 'payments' ? 'Métodos de pago' : 'Ayuda y soporte'}</Text>
+              {panel === 'payments' ? <Text style={styles.sectionHint}>Elige tu medio de pago dentro de Mercado Pago al pagar una solicitud aceptada. ServiMatch no guarda los datos de tus tarjetas.</Text> : <>
+                <Text style={styles.groupLabel}>PAGOS</Text><Text style={styles.sectionHint}>El cliente paga después de que el trabajador acepta la solicitud. La confirmación se verifica con Mercado Pago al regresar a la aplicación.</Text>
+                <Text style={styles.groupLabel}>COORDINAR UN SERVICIO</Text><Text style={styles.sectionHint}>Abre el seguimiento de tu solicitud para conversar con la otra persona mientras el servicio esté activo.</Text>
+                <Text style={styles.groupLabel}>FINALIZACIÓN</Text><Text style={styles.sectionHint}>Cuando el trabajo esté terminado, el cliente genera el código y el trabajador lo ingresa para finalizar. Después, el cliente puede calificar el servicio.</Text>
+                <Text style={styles.groupLabel}>CANCELACIONES</Text><Text style={styles.sectionHint}>Consulta las acciones disponibles en el seguimiento. Cancelar una solicitud no confirma una devolución de Mercado Pago; si ya pagaste, solicita una revisión al administrador del proyecto.</Text>
+              </>}
+            </View>}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </KeyboardAvoidingView>
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 }, page: { flex: 1, backgroundColor: '#F5F7F6' },
-  content: { padding: 24, paddingBottom: 52, width: '100%', maxWidth: 600, alignSelf: 'center' },
+  content: { padding: 20, paddingBottom: 52, width: '100%', maxWidth: 600, alignSelf: 'center' },
   brand: { color: '#32745C', fontWeight: '700', fontSize: 17, marginBottom: 28 },
-  title: { color: '#14251F', fontSize: 32, fontWeight: '800' },
+  title: { color: '#14251F', fontSize: 22, fontWeight: '800', marginBottom: 22, marginTop: 10 },
   subtitle: { color: '#52615C', fontSize: 15, lineHeight: 22, marginTop: 7, marginBottom: 22 },
-  hero: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, backgroundColor: '#E7F3EC', borderRadius: 18, marginBottom: 18 },
+  identityCard: { backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1, borderColor: '#DCE6E1', padding: 16, marginBottom: 12 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
+  badge: { backgroundColor: '#E4F3EB', borderRadius: 16, paddingVertical: 4, paddingHorizontal: 10, color: '#086F4D', fontSize: 12, fontWeight: '700' },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
+  badgeText: { color: '#086F4D', fontSize: 12, fontWeight: '700', flexShrink: 1 },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: 1, borderTopColor: '#DCE6E1', marginTop: 16, paddingTop: 10, minHeight: 44 },
+  menu: { marginBottom: 20 },
   avatar: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#256047' },
   avatarText: { color: '#FFFFFF', fontSize: 26, fontWeight: '700' },
-  heroName: { color: '#14251F', fontSize: 20, fontWeight: '700' },
+  heroName: { color: '#14251F', fontSize: 17, fontWeight: '700' },
   heroEmail: { color: '#52615C', fontSize: 13, marginTop: 4 },
   role: { color: '#256047', fontSize: 12, fontWeight: '700', marginTop: 8 },
   card: { padding: 20, backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1, borderColor: '#DCE6E1' },

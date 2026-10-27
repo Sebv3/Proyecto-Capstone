@@ -190,14 +190,16 @@ export function ClientMainTabs() {
     }}>
       {() => <RequestsNavigator role="CLIENTE" />}
     </ClientTab.Screen>
-    <ClientTab.Screen name="ClientProfile" component={ProfileScreen} options={{
+    <ClientTab.Screen name="ClientProfile" options={{
       title: 'Perfil', tabBarIcon: tabIcon('person', 'person-outline'),
-    }} />
+    }}>
+      {({ navigation }) => <ProfileScreen onRequests={() => navigation.navigate('ClientRequests')} />}
+    </ClientTab.Screen>
   </ClientTab.Navigator>;
 }
 
 type WorkerTabParamList = {
-  WorkerHome: undefined;
+  WorkerHome: NavigatorScreenParams<WorkerHomeStackParamList> | undefined;
   WorkerAgenda: NavigatorScreenParams<AgendaStackParams> | undefined;
   WorkerRequests: undefined;
   WorkerEarnings: undefined;
@@ -261,8 +263,13 @@ export function WorkerMainTabs({
     }}>
       {() => <WorkerEarningsScreen />}
     </WorkerTab.Screen>
-    <WorkerTab.Screen name="WorkerProfile" component={ProfileScreen} options={{
+    <WorkerTab.Screen name="WorkerProfile" options={{
       title: 'Perfil', tabBarIcon: tabIcon('person', 'person-outline'),
-    }} />
+    }}>
+      {({ navigation }) => <ProfileScreen onWorkerProfileCreated={onRefresh}
+        onPublish={() => navigation.navigate('WorkerHome', { screen: 'PublishService', params: undefined })}
+        onCertifications={() => navigation.navigate('WorkerHome', { screen: 'WorkerCertifications', params: undefined })}
+        onEarnings={() => navigation.navigate('WorkerEarnings')} />}
+    </WorkerTab.Screen>
   </WorkerTab.Navigator>;
 }
