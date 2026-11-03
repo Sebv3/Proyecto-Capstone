@@ -3,6 +3,15 @@ import http from 'node:http';
 const client = '55555555-5555-4555-8555-555555555555';
 const worker = '11111111-1111-4111-8111-111111111111';
 const workerPreview = process.env.PREVIEW_ROLE === 'TRABAJADOR';
+let activeRole = workerPreview ? 'TRABAJADOR' : 'CLIENTE';
+const accountId = workerPreview ? worker : client;
+const approvedWorker = workerPreview || process.env.PREVIEW_APPROVED_WORKER === 'true';
+const commune = { id: '77777777-7777-4777-8777-777777777777', nombre: 'Santiago' };
+const previewUser = () => ({ id: accountId, nombre: workerPreview ? 'Juan Pérez' : 'Ana González',
+  email: 'preview@example.test', telefono: null, rol: activeRole, activo: true });
+let clientProfile = workerPreview ? null : { usuario_id: accountId, ...previewUser(),
+  direccion: 'Dirección ficticia 123', comuna: commune, rut: '12345678-5', avatar_url: null,
+  creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
 const mpPreview = process.env.PREVIEW_MERCADOPAGO === 'true';
 const listCount = Math.min(5000, Math.max(1, Number(process.env.PREVIEW_LIST_COUNT || 1)));
 const chatCount = Math.min(5000, Math.max(0, Number(process.env.PREVIEW_CHAT_COUNT || 0)));
@@ -32,7 +41,22 @@ http.createServer(async (req, res) => {
   const path = url.pathname.replace('/api/v1', '');
   let result = {}, status = 200;
   if (path === '/auth/login' || path === '/auth/refresh') result = { access_token: 'preview-only', refresh_token: 'preview-only', token_type: 'bearer', expires_in: 3600 };
-  else if (path === '/auth/me') result = { user: { id: workerPreview ? worker : client, nombre: workerPreview ? 'Juan Pérez' : 'Ana González', email: 'preview@example.test', telefono: null, rol: workerPreview ? 'TRABAJADOR' : 'CLIENTE', activo: true } };
+  else if (path === '/auth/me') result = { user: previewUser() };
+  else if (path === '/cuenta/modos') result = { rol_activo: activeRole, puede_ser_cliente: true,
+    puede_ser_trabajador: approvedWorker, tiene_perfil_trabajador: approvedWorker, perfil_cliente_completo: !!clientProfile };
+  else if (path === '/cuenta/modo' && req.method === 'POST') {
+    if (!['CLIENTE','TRABAJADOR'].includes(body.rol) || (body.rol === 'TRABAJADOR' && !approvedWorker)) {
+      status = 403; result = { detail: 'Worker approval required' };
+    } else { activeRole = body.rol; result = previewUser(); }
+  }
+  else if (path === '/comunas') result = [commune];
+  else if (path === '/perfiles/cliente') {
+    if (req.method === 'POST' || req.method === 'PATCH') clientProfile = { usuario_id: accountId, ...previewUser(),
+      direccion: body.direccion, comuna: commune, rut: '12345678-5', avatar_url: null,
+      creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
+    if (!clientProfile) { status = 404; result = { detail: 'Missing client profile' }; }
+    else result = clientProfile;
+  }
   else if (path === '/perfiles/trabajador') result = { usuario_id: worker, direccion_base: 'Dirección ficticia', comuna: { id: 'demo', nombre: 'Santiago' } };
   else if (path === '/verificaciones/trabajador') result = { trabajador_id: worker, estado: 'APROBADA' };
   else if (path === '/trabajador/servicios' || path === '/solicitudes/proximas') result = [];

@@ -136,6 +136,6 @@ export function BookingRequestsScreen({ role, onBooking, agenda = false, onAvail
       ListHeaderComponent={header}
       ListFooterComponent={hasMore ? <Pressable accessibilityRole="button" disabled={loading || moreLoading} onPress={() => void more()} style={[styles.button, { marginTop: 16 }]}>
         {moreLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Cargar más</Text>}
-      </Pressable> : null} />
+      </Pressable> : undefined} />
   </SafeAreaView>;
 }

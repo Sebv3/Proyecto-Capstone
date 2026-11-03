@@ -9,6 +9,7 @@ import {
   type WorkerVerification,
 } from '../api/workerVerification';
 import { useAuth } from '../auth/AuthContext';
+import { getClientProfile, isMissingClientProfile, clientProfileErrorMessage } from '../api/clientProfile';
 import { EmailConfirmedScreen } from '../screens/EmailConfirmedScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { PasswordRecoveryScreen } from '../screens/PasswordRecoveryScreen';
@@ -58,7 +59,21 @@ export function RootNavigator() {
     userId: null, state: 'loading', verification: null, error: null,
   });
   const [reloadKey, setReloadKey] = useState(0);
+  const [clientFlow, setClientFlow] = useState<{ userId: string | null; state: 'loading' | 'profile' | 'ready' | 'error'; error?: string }>({ userId: null, state: 'loading' });
   const refresh = () => setReloadKey((current) => current + 1);
+
+  useEffect(() => {
+    if (user?.rol !== 'CLIENTE') return;
+    let active = true;
+    const userId = user.id;
+    setClientFlow({ userId, state: 'loading' });
+    void withAccessToken(getClientProfile).then(() => {
+      if (active) setClientFlow({ userId, state: 'ready' });
+    }).catch((reason) => {
+      if (active) setClientFlow({ userId, state: isMissingClientProfile(reason) ? 'profile' : 'error', error: clientProfileErrorMessage(reason) });
+    });
+    return () => { active = false; };
+  }, [user?.id, user?.rol, reloadKey]);
 
   useEffect(() => {
     if (user?.rol !== 'TRABAJADOR') return;
@@ -113,6 +128,13 @@ export function RootNavigator() {
   }, [user?.id, user?.rol]);
 
   if (isRestoringSession) return <SessionLoadingScreen />;
+  if (user?.rol === 'CLIENTE' && (clientFlow.userId !== user.id || clientFlow.state === 'loading')) return <SessionLoadingScreen />;
+  if (user?.rol === 'CLIENTE' && clientFlow.state === 'error') return <SafeAreaView style={styles.page}><View style={styles.errorContent}>
+    <Text accessibilityRole="header" style={styles.title}>No pudimos cargar tu perfil de cliente</Text>
+    <Text accessibilityRole="alert" style={styles.hint}>{clientFlow.error}</Text>
+    <Pressable accessibilityRole="button" onPress={refresh} style={styles.button}><Text style={styles.buttonText}>Reintentar</Text></Pressable>
+    <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.linkButton}><Text style={styles.link}>Cerrar sesión</Text></Pressable>
+  </View></SafeAreaView>;
   if (user?.rol === 'TRABAJADOR') {
     if (flow.userId !== user.id || flow.state === 'loading') return <SessionLoadingScreen />;
     if (flow.state === 'error') return <SafeAreaView style={styles.page}>
@@ -130,13 +152,15 @@ export function RootNavigator() {
   }
 
   return <NavigationContainer linking={linking}>
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator key={user ? `${user.id}:${user.rol}` : 'guest'} screenOptions={{ headerShown: false }}>
       {!user ? <>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="PasswordRecovery" component={PasswordRecoveryScreen} />
         <Stack.Screen name="RegistrationRole" component={RegistrationRoleScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
-      </> : user.rol === 'TRABAJADOR' && flow.state === 'legacy-profile' ?
+      </> : user.rol === 'CLIENTE' && clientFlow.state === 'profile' ?
+        <Stack.Screen name="Profile">{() => <ProfileScreen onClientProfileCreated={refresh} />}</Stack.Screen>
+      : user.rol === 'TRABAJADOR' && flow.state === 'legacy-profile' ?
         <Stack.Screen name="Profile">
           {() => <ProfileScreen onWorkerProfileCreated={refresh} />}
         </Stack.Screen>

@@ -33,10 +33,10 @@ $$;
 create function public.es_trabajador() returns boolean language sql stable security definer as $$
     select exists (select 1 from public.usuarios where id = auth.uid() and rol = 'TRABAJADOR' and activo);
 $$;
-create function public.trabajador_puede_publicar(p_id uuid) returns boolean
+create function public.trabajador_puede_publicar(p_trabajador_id uuid) returns boolean
 language sql stable security definer as $$
     select exists (select 1 from public.usuarios u join public.verificaciones_trabajador v
-        on v.trabajador_id = u.id where u.id = p_id and u.activo and u.rol = 'TRABAJADOR'
+        on v.trabajador_id = u.id where u.id = p_trabajador_id and u.activo and u.rol = 'TRABAJADOR'
         and v.estado = 'APROBADA');
 $$;
 create function public.actualizar_marca_de_tiempo() returns trigger language plpgsql as $$

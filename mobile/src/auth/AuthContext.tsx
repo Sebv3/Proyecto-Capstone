@@ -13,6 +13,7 @@ import {
 import { clearStoredSession, readStoredSession, saveSession } from './sessionStorage';
 import { requestWithSession } from './requestWithSession';
 import { endSession } from './endSession';
+import { changeAccountMode, type AccountMode } from '../api/accountModes';
 
 type AuthState = {
   user: User | null;
@@ -22,6 +23,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   withAccessToken: <T>(request: (token: string) => Promise<T>) => Promise<T>;
   refreshUser: () => Promise<User>;
+  switchMode: (mode: AccountMode) => Promise<void>;
   updateUser: (changes: Partial<Pick<User, 'nombre' | 'avatar_url'>>) => void;
 };
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -57,6 +59,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const sessionRef = useRef<AuthSession | null>(null);
   const refreshRef = useRef<Promise<AuthSession> | null>(null);
   const authVersion = useRef(0);
+  const modeVersion = useRef(0);
+  const switchingMode = useRef(false);
   const storageWrites = useRef<Promise<void>>(Promise.resolve());
 
   function persist(next: AuthSession | null): Promise<void> {
@@ -126,6 +130,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         try { await revokeSession(next); } catch { /* Local logout already completed. */ }
         throw new Error('La sesión cambió.');
       }
+      const modeRevision = modeVersion.current;
       const refreshedUser = await getCurrentUser(next.access_token);
       if (version !== authVersion.current) {
         try { await revokeSession(next); } catch { /* Local logout already completed. */ }
@@ -138,7 +143,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       sessionRef.current = next;
       setSession(next);
-      setUser(refreshedUser);
+      if (modeRevision === modeVersion.current) setUser(refreshedUser);
       return next;
     })();
     refreshRef.current = pending;
@@ -159,10 +164,31 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   async function refreshUser(): Promise<User> {
     const version = authVersion.current;
+    const modeRevision = modeVersion.current;
     const currentUser = await withAccessToken(getCurrentUser);
     if (version !== authVersion.current) throw new Error('La sesión cambió.');
+    if (modeRevision !== modeVersion.current) throw new Error('El modo de la cuenta cambió.');
     setUser(currentUser);
     return currentUser;
+  }
+
+  async function switchMode(mode: AccountMode): Promise<void> {
+    if (switchingMode.current) return;
+    switchingMode.current = true;
+    const version = authVersion.current;
+    try {
+      const next = await withAccessToken((token) => changeAccountMode(token, mode));
+      if (version !== authVersion.current) throw new Error('La sesión cambió.');
+      modeVersion.current += 1;
+      setUser(next);
+    } catch (error) {
+      // A lost response may have committed the switch. Re-read before allowing retry.
+      if (version === authVersion.current) {
+        modeVersion.current += 1;
+        try { await refreshUser(); } catch { /* The profile offers a retry. */ }
+      }
+      throw error;
+    } finally { switchingMode.current = false; }
   }
 
   useEffect(() => {
@@ -196,7 +222,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isRestoringSession, signIn, startSession, signOut, withAccessToken, refreshUser, updateUser }}>
+    <AuthContext.Provider value={{ user, isRestoringSession, signIn, startSession, signOut, withAccessToken, refreshUser, switchMode, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

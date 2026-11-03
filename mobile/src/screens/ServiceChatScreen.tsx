@@ -152,10 +152,10 @@ export function ServiceChatScreen({ bookingId, onBack }: { bookingId: string; on
         keyboardShouldPersistTaps="handled" contentContainerStyle={s.messages}
         ListEmptyComponent={loading ? <ActivityIndicator color="#087D56" /> : !closed && page ? <View style={s.empty}>
           <Ionicons name="chatbubbles-outline" size={40} color="#087D56" /><Text style={s.title}>Coordina tu servicio</Text><Text style={s.hint}>Envía el primer mensaje para acordar los detalles.</Text>
-        </View> : null}
+        </View> : undefined}
         ListFooterComponent={page?.has_more ? <Pressable accessibilityRole="button" disabled={busy || olderLoading} onPress={() => void refresh(true)} style={s.older}>
           {olderLoading ? <ActivityIndicator color="#087D56" /> : <Text style={s.link}>Ver mensajes anteriores</Text>}
-        </Pressable> : null} />
+        </Pressable> : undefined} />
       {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
       {closed && <Pressable accessibilityRole="button" onPress={onBack} style={s.older}><Text style={s.link}>Volver al servicio</Text></Pressable>}
       {!closed && page?.conversacion_id && <View style={s.composer}>

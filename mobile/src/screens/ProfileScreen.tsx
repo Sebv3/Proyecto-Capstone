@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { type Commune, getCommunes } from '../api/auth';
 import {
   type ClientProfile, clientProfileErrorMessage, createClientProfile,
-  deactivateClientAccount, getClientProfile, isMissingClientProfile, updateClientProfile,
+  getClientProfile, isMissingClientProfile, updateClientProfile,
 } from '../api/clientProfile';
 import { useAuth } from '../auth/AuthContext';
 import {
@@ -24,6 +24,8 @@ import { showWorkerRoleRequest } from '../services/workerRoleRequest';
 import { EditableProfilePhoto, ProfileAvatar } from '../components/ProfilePhoto';
 import { ProfileMenuItem } from '../components/ProfileMenu';
 import { ProfileReviews } from '../components/ProfileReviews';
+import { AccountModeSwitcher } from '../components/AccountModeSwitcher';
+import { deactivateAccount, accountDeactivationError, type AccountModes } from '../api/accountModes';
 import { getWorkerProfile, getWorkerVerification, type WorkerProfile, type WorkerVerification } from '../api/workerVerification';
 import { getWorkerReviews, type WorkerReviews } from '../api/reviews';
 
@@ -71,8 +73,8 @@ function CommunePicker({
 }
 
 export function ProfileScreen({
-  onWorkerProfileCreated, onBack, onRequests, onPublish, onCertifications, onEarnings,
-}: { onWorkerProfileCreated?: () => void; onBack?: () => void; onRequests?: () => void;
+  onWorkerProfileCreated, onClientProfileCreated, onBack, onRequests, onPublish, onCertifications, onEarnings,
+}: { onWorkerProfileCreated?: () => void; onClientProfileCreated?: () => void; onBack?: () => void; onRequests?: () => void;
   onPublish?: () => void; onCertifications?: () => void; onEarnings?: () => void }) {
   const { user, withAccessToken, refreshUser, updateUser, signOut } = useAuth();
   const [profile, setProfile] = useState<ClientProfile | null>(null);
@@ -82,6 +84,7 @@ export function ProfileScreen({
   const [editing, setEditing] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
+  const [accountModes, setAccountModes] = useState<AccountModes | null>(null);
   const [panel, setPanel] = useState<'payments' | 'reviews' | 'help' | null>(null);
   const [workerProfile, setWorkerProfile] = useState<WorkerProfile | null>(null);
   const [workerVerification, setWorkerVerification] = useState<WorkerVerification | null>(null);
@@ -194,6 +197,7 @@ export function ProfileScreen({
       reset({ nombre: result.nombre, telefono: result.telefono ?? '',
         direccion: result.direccion, comuna_id: result.comuna.id });
       setNotice(missing ? 'Perfil completado.' : 'Cambios guardados.');
+      if (missing) onClientProfileCreated?.();
     } catch (reason) { setError(clientProfileErrorMessage(reason)); }
     finally { setSaving(false); }
   });
@@ -203,10 +207,10 @@ export function ProfileScreen({
     setDeactivating(true);
     setDeactivationError(null);
     try {
-      await withAccessToken(deactivateClientAccount);
+      await withAccessToken(deactivateAccount);
       await signOut();
     } catch (reason) {
-      setDeactivationError(clientProfileErrorMessage(reason));
+      setDeactivationError(accountDeactivationError(reason));
       setConfirmDeactivate(false);
     } finally { setDeactivating(false); }
   }
@@ -223,6 +227,8 @@ export function ProfileScreen({
     />;
   }
   const showForm = user.rol === 'CLIENTE' && (missing || editing);
+  const mayRequestWorker = !!accountModes && !accountModes.tiene_perfil_trabajador
+    && showWorkerRoleRequest(user.rol, roleRequest);
   return <SafeAreaView style={styles.page}>
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -254,6 +260,8 @@ export function ProfileScreen({
         </View>
 
         <View style={styles.menu}>
+          <AccountModeSwitcher onStatus={setAccountModes} />
+          {(!missing || user.rol !== 'CLIENTE') && <>
           {user.rol === 'TRABAJADOR' ? <>
             {onPublish && <ProfileMenuItem icon="add-outline" title="Publicar servicio" subtitle="Ofrece un nuevo servicio" onPress={onPublish} />}
             {onCertifications && <ProfileMenuItem icon="ribbon-outline" title="Certificaciones" subtitle="Cursos y documentos profesionales" onPress={onCertifications} />}
@@ -266,8 +274,9 @@ export function ProfileScreen({
             <ProfileMenuItem icon="star-outline" title="Mis reseñas" subtitle="Calificaciones de tus servicios completados" onPress={() => setPanel('reviews')} />
           </>}
           <ProfileMenuItem icon="chatbubble-outline" title="Ayuda y soporte" subtitle="Información sobre pagos y servicios" onPress={() => setPanel('help')} />
-          {showWorkerRoleRequest(user.rol, roleRequest) && <ProfileMenuItem icon="construct-outline" title="Solicitar rol de trabajador" subtitle="Verificación de identidad y perfil profesional" amber expanded={roleOpen} onPress={() => setRoleOpen((value) => !value)} />}
+          {mayRequestWorker && <ProfileMenuItem icon="construct-outline" title="Solicitar rol de trabajador" subtitle="Verificación de identidad y perfil profesional" amber expanded={roleOpen} onPress={() => setRoleOpen((value) => !value)} />}
           <ProfileMenuItem icon="person-circle-outline" title="Datos de mi cuenta" subtitle="Foto y datos personales" expanded={detailsOpen} onPress={() => setDetailsOpen((value) => !value)} />
+          </>}
         </View>
 
         {detailsOpen && <View style={{ marginBottom: 18 }}><EditableProfilePhoto key={user.id} /></View>}
@@ -344,7 +353,7 @@ export function ProfileScreen({
 
         {user.rol === 'TRABAJADOR' && detailsOpen && <WorkerProfileSection onProfileCreated={() => { setReloadKey((n) => n + 1); onWorkerProfileCreated?.(); }} />}
 
-        {roleOpen && showWorkerRoleRequest(user.rol, roleRequest) && <View style={styles.roleRequestCard}>
+        {roleOpen && mayRequestWorker && <View style={styles.roleRequestCard}>
           <Text style={styles.sectionTitle}>¿Quieres ofrecer tus servicios?</Text>
           <Text style={styles.sectionHint}>
             Solicita convertir tu cuenta en un perfil de trabajador. Mantendrás tu acceso de cliente mientras revisamos la solicitud.
@@ -385,14 +394,15 @@ export function ProfileScreen({
           <Text style={styles.link}>Cerrar sesión</Text>
         </Pressable>
 
-        {user.rol === 'CLIENTE' && <View style={styles.dangerSection}>
+        {['CLIENTE', 'TRABAJADOR'].includes(user.rol) && <View style={styles.dangerSection}>
           <Text style={styles.dangerTitle}>Desactivar cuenta</Text>
-          <Text style={styles.sectionHint}>Conservaremos el historial, pero ya no podrás ingresar ni solicitar servicios.</Text>
+          <Text style={styles.sectionHint}>Conservaremos tu historial, pero ya no podrás ingresar, contratar ni ofrecer servicios.</Text>
           {deactivationError && <Text accessibilityRole="alert" style={styles.error}>{deactivationError}</Text>}
           {!confirmDeactivate ? <Pressable accessibilityRole="button" onPress={() => setConfirmDeactivate(true)}
             style={styles.textButton}><Text style={styles.dangerLink}>Desactivar mi cuenta</Text></Pressable>
             : <View style={styles.confirmBox}>
               <Text style={styles.dangerTitle}>¿Confirmas la desactivación?</Text>
+              <Text style={styles.sectionHint}>Se desactivará toda tu cuenta, tanto el modo cliente como el de trabajador.</Text>
               <Pressable accessibilityRole="button" disabled={deactivating} onPress={() => void deactivate()}
                 style={[styles.dangerButton, deactivating && styles.disabled]}>
                 <Text style={styles.primaryText}>{deactivating ? 'Desactivando…' : 'Sí, desactivar cuenta'}</Text>

@@ -157,7 +157,7 @@ export function ServiceSearchScreen({ initialCategoryId, onService }: {
         <Ionicons name="search-outline" size={32} color="#52695C" />
         <Text style={styles.serviceName}>No encontramos servicios</Text>
         <Text style={styles.hint}>Prueba con otras palabras o ajusta los filtros.</Text>
-      </View> : null}
+      </View> : undefined}
       ListFooterComponent={<View style={styles.footer}>
         {loading && <ActivityIndicator color="#087A57" />}
         {!!error && <View style={styles.state}><Text accessibilityRole="alert" style={styles.error}>{error}</Text>

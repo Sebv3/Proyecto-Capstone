@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable,
@@ -24,7 +24,7 @@ export function LoginScreen({ navigation }: NativeStackScreenProps<RootStackPara
   const { signIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef<ComponentRef<typeof TextInput>>(null);
   const submitting = useRef(false);
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginValues>({
     resolver: zodResolver(schema), defaultValues: { email: '', password: '' },

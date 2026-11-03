@@ -3,6 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.account_modes import router as account_modes_router
 from app.routers.admin_verifications import router as admin_verifications_router
 from app.routers.admin_worker_role_requests import (
     router as admin_worker_role_requests_router,
@@ -47,6 +48,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(account_modes_router)
 app.include_router(notifications_router)
 app.include_router(catalog_router)
 app.include_router(locations_router)

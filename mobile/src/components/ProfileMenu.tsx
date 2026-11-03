@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-export function ProfileMenuItem({ icon, title, subtitle, onPress, expanded, amber = false }: {
+export function ProfileMenuItem({ icon, title, subtitle, onPress, expanded, amber = false, disabled = false }: {
   icon: ComponentProps<typeof Ionicons>['name']; title: string; subtitle: string;
-  onPress: () => void; expanded?: boolean; amber?: boolean;
+  onPress: () => void; expanded?: boolean; amber?: boolean; disabled?: boolean;
 }) {
-  return <Pressable accessibilityRole="button" accessibilityState={expanded === undefined ? undefined : { expanded }}
-    onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+  return <Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled, ...(expanded === undefined ? {} : { expanded }) }}
+    onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed, disabled && { opacity: 0.6 }]}>
     <View style={[styles.icon, amber && styles.amber]}><Ionicons name={icon} size={23} color={amber ? '#895A08' : '#087D56'} /></View>
     <View style={styles.body}><Text style={styles.title}>{title}</Text><Text style={styles.subtitle}>{subtitle}</Text></View>
     <Ionicons name={expanded ? 'chevron-down' : 'chevron-forward'} size={19} color="#52695C" />

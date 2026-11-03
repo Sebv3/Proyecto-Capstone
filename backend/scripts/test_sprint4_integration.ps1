@@ -57,6 +57,7 @@ try {
     $migrationArgs = @('exec',$reviewPg,'psql','-U','postgres','-d','sprint4_review','-v','ON_ERROR_STOP=1')
     foreach ($file in @(
         'migrations/20261005120000_worker_certifications.sql',
+        'migrations/20261005150000_create_coverage_locations.sql',
         'migrations/20261005180000_service_locations.sql',
         'migrations/20261006200000_align_public_service_visibility.sql',
         'migrations/20261006210000_create_bookings.sql',
@@ -82,7 +83,12 @@ try {
         'tests/mercadopago_rules.sql',
         'migrations/20261019120000_profile_avatars.sql',
         'tests/profile_avatars_rules.sql',
-        'migrations/20261026120000_require_provider_test_payment.sql'
+        'migrations/20261026120000_require_provider_test_payment.sql',
+        'tests/account_modes_fixture.sql',
+        'migrations/20261103120000_account_mode_switching.sql',
+        'tests/account_modes_rules.sql',
+        'migrations/20261103130000_worker_account_deactivation.sql',
+        'tests/account_deactivation_rules.sql'
     )) { $migrationArgs += @('-f',"/fixtures/$file") }
     Invoke-TestDocker -DockerArgs $migrationArgs | Out-Null
     Invoke-TestDocker -DockerArgs @('exec',$reviewPg,'psql','-U','postgres','-v','ON_ERROR_STOP=1',
