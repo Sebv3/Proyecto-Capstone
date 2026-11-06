@@ -82,7 +82,8 @@ export function ProfileScreen({
   const [loading, setLoading] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsSection, setDetailsSection] = useState<'account' | 'address' | 'verification' | null>(null);
+  const detailsOpen = detailsSection !== null;
   const [roleOpen, setRoleOpen] = useState(false);
   const [accountModes, setAccountModes] = useState<AccountModes | null>(null);
   const [panel, setPanel] = useState<'payments' | 'reviews' | 'help' | null>(null);
@@ -229,56 +230,7 @@ export function ProfileScreen({
   const showForm = user.rol === 'CLIENTE' && (missing || editing);
   const mayRequestWorker = !!accountModes && !accountModes.tiene_perfil_trabajador
     && showWorkerRoleRequest(user.rol, roleRequest);
-  return <SafeAreaView style={styles.page}>
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {onBack && <Pressable accessibilityRole="button" onPress={onBack} style={styles.textButton}>
-          <Text style={styles.link}>Volver al inicio</Text>
-        </Pressable>}
-        <Text accessibilityRole="header" style={styles.title}>{user.rol === 'TRABAJADOR' ? 'Mi perfil profesional' : 'Mi perfil'}</Text>
-
-        <View style={styles.identityCard}>
-        <View style={styles.hero}>
-          <ProfileAvatar url={user.avatar_url} name={user.nombre} />
-          <View style={styles.flex}>
-            <Text style={styles.heroName}>{profile?.nombre ?? user.nombre}</Text>
-            <Text style={styles.heroEmail}>{user.rol === 'TRABAJADOR' ? workerProfile?.comuna?.nombre ?? user.email
-              : `${user.email}${profile?.comuna ? ' · ' + profile.comuna.nombre : ''}`}</Text>
-            <View style={styles.badgeRow}>
-              {user.rol === 'TRABAJADOR' ? workerVerification?.estado === 'APROBADA'
-                ? <View style={[styles.badge, styles.verifiedBadge]}><Ionicons name="shield-checkmark-outline" size={14} color="#086F4D" /><Text style={styles.badgeText}>Identidad verificada</Text></View>
-                : <Text style={styles.heroEmail}>Identidad {workerVerification ? workerVerification.estado.toLowerCase() : 'sin confirmar'}</Text>
-                : <Text style={styles.badge}>Cliente</Text>}
-            </View>
-          </View>
-        </View>
-        {user.rol === 'TRABAJADOR' && <Pressable accessibilityRole="button" accessibilityLabel="Ver reseñas recibidas" onPress={() => setPanel('reviews')} style={styles.rating}>
-          <Ionicons name="star" size={16} color="#087D56" /><Text style={styles.heroEmail}>{workerReviews
-            ? workerReviews.cantidad ? `${workerReviews.promedio?.toFixed(1)} (${workerReviews.cantidad} reseñas)` : 'Sin reseñas todavía'
-            : 'Ver reseñas recibidas'}</Text>
-        </Pressable>}
-        </View>
-
-        <View style={styles.menu}>
-          <AccountModeSwitcher onStatus={setAccountModes} />
-          {(!missing || user.rol !== 'CLIENTE') && <>
-          {user.rol === 'TRABAJADOR' ? <>
-            {onPublish && <ProfileMenuItem icon="add-outline" title="Publicar servicio" subtitle="Ofrece un nuevo servicio" onPress={onPublish} />}
-            {onCertifications && <ProfileMenuItem icon="ribbon-outline" title="Certificaciones" subtitle="Cursos y documentos profesionales" onPress={onCertifications} />}
-            {onEarnings && <ProfileMenuItem icon="wallet-outline" title="Ganancias" subtitle="Ingresos y servicios completados" onPress={onEarnings} />}
-            <ProfileMenuItem icon="document-text-outline" title="Datos y verificación" subtitle="Ubicación e identidad del trabajador" expanded={detailsOpen} onPress={() => setDetailsOpen((value) => !value)} />
-          </> : <>
-            {onRequests && <ProfileMenuItem icon="list-outline" title="Solicitudes" subtitle="Servicios contratados e historial" onPress={onRequests} />}
-            <ProfileMenuItem icon="card-outline" title="Métodos de pago" subtitle="Pagos a través de Mercado Pago" onPress={() => setPanel('payments')} />
-            <ProfileMenuItem icon="location-outline" title="Direcciones" subtitle={profile ? `${profile.direccion} · ${profile.comuna.nombre}` : 'Completa tu dirección de contacto'} expanded={detailsOpen} onPress={() => setDetailsOpen((value) => !value)} />
-            <ProfileMenuItem icon="star-outline" title="Mis reseñas" subtitle="Calificaciones de tus servicios completados" onPress={() => setPanel('reviews')} />
-          </>}
-          <ProfileMenuItem icon="chatbubble-outline" title="Ayuda y soporte" subtitle="Información sobre pagos y servicios" onPress={() => setPanel('help')} />
-          {mayRequestWorker && <ProfileMenuItem icon="construct-outline" title="Solicitar rol de trabajador" subtitle="Verificación de identidad y perfil profesional" amber expanded={roleOpen} onPress={() => setRoleOpen((value) => !value)} />}
-          <ProfileMenuItem icon="person-circle-outline" title="Datos de mi cuenta" subtitle="Foto y datos personales" expanded={detailsOpen} onPress={() => setDetailsOpen((value) => !value)} />
-          </>}
-        </View>
-
+  const profileDetails = <View style={{ paddingVertical: 12, gap: 12 }}>
         {detailsOpen && <View style={{ marginBottom: 18 }}><EditableProfilePhoto key={user.id} /></View>}
 
         {user.rol === 'CLIENTE' && (detailsOpen || showForm) && <View style={styles.card}>
@@ -352,6 +304,61 @@ export function ProfileScreen({
         </View>}
 
         {user.rol === 'TRABAJADOR' && detailsOpen && <WorkerProfileSection onProfileCreated={() => { setReloadKey((n) => n + 1); onWorkerProfileCreated?.(); }} />}
+  </View>;
+  return <SafeAreaView style={styles.page}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {onBack && <Pressable accessibilityRole="button" onPress={onBack} style={styles.textButton}>
+          <Text style={styles.link}>Volver al inicio</Text>
+        </Pressable>}
+        <Text accessibilityRole="header" style={styles.title}>{user.rol === 'TRABAJADOR' ? 'Mi perfil profesional' : 'Mi perfil'}</Text>
+
+        <View style={styles.identityCard}>
+        <View style={styles.hero}>
+          <ProfileAvatar url={user.avatar_url} name={user.nombre} />
+          <View style={styles.flex}>
+            <Text style={styles.heroName}>{profile?.nombre ?? user.nombre}</Text>
+            <Text style={styles.heroEmail}>{user.rol === 'TRABAJADOR' ? workerProfile?.comuna?.nombre ?? user.email
+              : `${user.email}${profile?.comuna ? ' · ' + profile.comuna.nombre : ''}`}</Text>
+            <View style={styles.badgeRow}>
+              {user.rol === 'TRABAJADOR' ? workerVerification?.estado === 'APROBADA'
+                ? <View style={[styles.badge, styles.verifiedBadge]}><Ionicons name="shield-checkmark-outline" size={14} color="#086F4D" /><Text style={styles.badgeText}>Identidad verificada</Text></View>
+                : <Text style={styles.heroEmail}>Identidad {workerVerification ? workerVerification.estado.toLowerCase() : 'sin confirmar'}</Text>
+                : <Text style={styles.badge}>Cliente</Text>}
+            </View>
+          </View>
+        </View>
+        {user.rol === 'TRABAJADOR' && <Pressable accessibilityRole="button" accessibilityLabel="Ver reseñas recibidas" onPress={() => setPanel('reviews')} style={styles.rating}>
+          <Ionicons name="star" size={16} color="#087D56" /><Text style={styles.heroEmail}>{workerReviews
+            ? workerReviews.cantidad ? `${workerReviews.promedio?.toFixed(1)} (${workerReviews.cantidad} reseñas)` : 'Sin reseñas todavía'
+            : 'Ver reseñas recibidas'}</Text>
+        </Pressable>}
+        </View>
+
+        <View style={styles.menu}>
+          {(!missing || user.rol !== 'CLIENTE') && <ProfileMenuItem icon="person-circle-outline" title="Datos de mi cuenta" subtitle="Foto y datos personales" expanded={detailsSection === 'account'} onPress={() => setDetailsSection((value) => value === 'account' ? null : 'account')} />}
+          {detailsSection === 'account' && profileDetails}
+          <AccountModeSwitcher onStatus={setAccountModes} />
+          {(!missing || user.rol !== 'CLIENTE') && <>
+          {user.rol === 'TRABAJADOR' ? <>
+            {onPublish && <ProfileMenuItem icon="add-outline" title="Publicar servicio" subtitle="Ofrece un nuevo servicio" onPress={onPublish} />}
+            {onCertifications && <ProfileMenuItem icon="ribbon-outline" title="Certificaciones" subtitle="Cursos y documentos profesionales" onPress={onCertifications} />}
+            {onEarnings && <ProfileMenuItem icon="wallet-outline" title="Ganancias" subtitle="Ingresos y servicios completados" onPress={onEarnings} />}
+            <ProfileMenuItem icon="document-text-outline" title="Datos y verificación" subtitle="Ubicación e identidad del trabajador" expanded={detailsSection === 'verification'} onPress={() => setDetailsSection((value) => value === 'verification' ? null : 'verification')} />
+          {detailsSection === 'verification' && profileDetails}
+          </> : <>
+            {onRequests && <ProfileMenuItem icon="list-outline" title="Solicitudes" subtitle="Servicios contratados e historial" onPress={onRequests} />}
+            <ProfileMenuItem icon="card-outline" title="Métodos de pago" subtitle="Pagos a través de Mercado Pago" onPress={() => setPanel('payments')} />
+            <ProfileMenuItem icon="location-outline" title="Direcciones" subtitle={profile ? `${profile.direccion} · ${profile.comuna.nombre}` : 'Completa tu dirección de contacto'} expanded={detailsSection === 'address'} onPress={() => setDetailsSection((value) => value === 'address' ? null : 'address')} />
+          {detailsSection === 'address' && profileDetails}
+            <ProfileMenuItem icon="star-outline" title="Mis reseñas" subtitle="Calificaciones de tus servicios completados" onPress={() => setPanel('reviews')} />
+          </>}
+          <ProfileMenuItem icon="chatbubble-outline" title="Ayuda y soporte" subtitle="Información sobre pagos y servicios" onPress={() => setPanel('help')} />
+          {mayRequestWorker && <ProfileMenuItem icon="construct-outline" title="Solicitar rol de trabajador" subtitle="Verificación de identidad y perfil profesional" amber expanded={roleOpen} onPress={() => setRoleOpen((value) => !value)} />}
+          </>}
+        </View>
+
+        {missing && !detailsOpen && profileDetails}
 
         {roleOpen && mayRequestWorker && <View style={styles.roleRequestCard}>
           <Text style={styles.sectionTitle}>¿Quieres ofrecer tus servicios?</Text>
