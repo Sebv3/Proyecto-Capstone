@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Planificación Sprints.md",
+                "file": "Fase 2/Evidencias Proyecto/Evidencias_documentacion/Sprints/Otros/Historias_Usuario_ServiMatch.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Planificación Sprints"
+              "title": "Historias_Usuario_ServiMatch"
             }
           }
         ]
@@ -190,23 +190,24 @@
   },
   "active": "2741c36943f893ca",
   "lastOpenFiles": [
-    "CONTEXT.md",
-    "Planificación Sprints.md",
-    "DEVELOPMENT.md",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/evidencias-test/Pruebas funcionales por sprint/Sprint 6 - Pruebas funcionales.docx",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/evidencias-test/Pruebas funcionales por sprint/Sprint 5 - Pruebas funcionales.docx",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/evidencias-test/Pruebas funcionales por sprint/Sprint 4 - Pruebas funcionales.docx",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/evidencias-test/Pruebas funcionales por sprint/Sprint 3 - Pruebas funcionales.docx",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/evidencias-test/Pruebas funcionales por sprint/Sprint 2 - Pruebas funcionales.docx",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/evidencias-test/Pruebas funcionales por sprint/Sprint 1 - Pruebas funcionales.docx",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/evidencias-test/Pruebas funcionales por sprint",
+    "Fase 2/Evidencias Proyecto/Evidencias_documentacion/~$ICAS V.1.1.docx",
     "README.md",
+    "DEVELOPMENT.md",
+    "Planificación Sprints.md",
+    "CONTEXT.md",
     "MVP.md",
     "supabase/seed.sql",
     "supabase/migrations",
     "supabase/README.md",
     "supabase",
-    "backend/pyproject.toml",
-    "docker-compose.yml",
     "backend/README.md",
-    "backend/tests/test_health.py",
-    "backend/Dockerfile",
-    "backend/requirements.txt",
-    "backend/tests/__init__.py",
-    "backend/tests",
     "mobile/node_modules/xml2js/README.md",
     "mobile/node_modules/xml2js/node_modules/xmlbuilder/README.md",
     "mobile/node_modules/unicode-match-property-ecmascript/README.md",
@@ -225,7 +226,6 @@
     "mobile/node_modules/lru-cache/README.md",
     "mobile/node_modules/log-symbols/node_modules/supports-color/readme.md",
     "mobile/node_modules/log-symbols/node_modules/has-flag/readme.md",
-    "mobile/node_modules/jsesc/README.md",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/layers-filled.svg",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/large-arrow-right-filled.svg",
     "mobile/node_modules/@react-native/debugger-frontend/dist/third-party/front_end/Images/label.svg",
